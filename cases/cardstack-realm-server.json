@@ -1,0 +1,30 @@
+{
+  "id": "cardstack-realm-server",
+  "name": "Cardstack Boxel realm-server image",
+  "source": {
+    "repo": "cardstack/boxel",
+    "evidence_run": "https://github.com/cardstack/boxel/actions/runs/25861223646",
+    "runner": "GitHub-hosted ubuntu-24.04"
+  },
+  "refs": {
+    "main": "cd677626e541c64cd899af7c5b07d6636c924b59",
+    "parent1": "52e6282f7d4a043b3a8d84fb474d6f0030710d3e",
+    "parent2": "621cf9813a1cfee953aeb49ba916bbbba6f17d3e",
+    "rolling1": "12ca827dfef36705dc39a646f68c74e7888e99ed",
+    "rolling2": "4907fde3472b46db3d97b0a8a0c00118fe376c85"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "packages/realm-server/realm-server.Dockerfile",
+    "image": "cardstack-realm-server",
+    "build_args": [
+      "realm_server_script=start:staging"
+    ],
+    "original_cache": "type=gha"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true
+  }
+}
+
