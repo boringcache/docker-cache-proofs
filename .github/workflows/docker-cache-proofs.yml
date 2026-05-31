@@ -92,7 +92,7 @@ jobs:
       build_output: ${{ inputs.build_output }}
       runner_label: ${{ needs.case.outputs.runner_label }}
       free_disk_space: ${{ needs.case.outputs.free_disk_space == 'true' }}
-      benchmark_workspace: boringcache/docker-cache-proofs
+      benchmark_workspace: boringcache/docker-cache-proof
       cli_ref: ${{ inputs.cli_ref }}
     secrets: inherit
 
@@ -119,7 +119,7 @@ jobs:
       build_output: none
       runner_label: ${{ needs.case.outputs.runner_label }}
       free_disk_space: ${{ needs.case.outputs.free_disk_space == 'true' }}
-      benchmark_workspace: boringcache/docker-cache-proofs
+      benchmark_workspace: boringcache/docker-cache-proof
       cli_ref: ${{ inputs.cli_ref }}
     secrets: inherit
 
@@ -146,7 +146,6 @@ jobs:
       build_output: ${{ inputs.build_output }}
       runner_label: ${{ needs.case.outputs.runner_label }}
       free_disk_space: ${{ needs.case.outputs.free_disk_space == 'true' }}
-      benchmark_workspace: boringcache/docker-cache-proofs
+      benchmark_workspace: boringcache/docker-cache-proof
       cli_ref: ${{ inputs.cli_ref }}
     secrets: inherit
-
