@@ -386,9 +386,17 @@ run_auto_build() {
     boringcache_args+=(--read-only)
   fi
 
+  local boringcache_bin
+  boringcache_bin="$(command -v boringcache)"
+  local boringcache_cmd=("$boringcache_bin")
+  if [[ "${BORINGCACHE_AUTO_USE_SUDO:-}" != "0" && "${GITHUB_ACTIONS:-}" == "true" && "$(uname -s)" == "Linux" && "$(id -u)" != "0" ]] && command -v sudo >/dev/null 2>&1; then
+    echo "Auto backend using sudo so BoringCache can read the Docker BuildKit root on GitHub-hosted Linux." >&2
+    boringcache_cmd=(sudo -E "$boringcache_bin")
+  fi
+
   : > "$build_log"
   set +e
-  DOCKER_BUILDKIT=1 BORINGCACHE_TIMING_TRACE=1 "${boringcache_args[@]}" -- \
+  DOCKER_BUILDKIT=1 BORINGCACHE_TIMING_TRACE=1 "${boringcache_cmd[@]}" "${boringcache_args[@]:1}" -- \
     docker buildx build \
     --file "$DOCKERFILE_PATH" \
     --tag "$IMAGE_TAG" \
