@@ -5,7 +5,7 @@ Public proof runs for Docker/BuildKit projects where cache import/export time, i
 This repo is intentionally evidence-first:
 
 - each case pins real upstream commits;
-- workflows run BoringCache OCI registry mode and BoringCache native Docker backend mode;
+- workflows run BoringCache OCI registry mode and the BoringCache `auto` Docker backend, which keeps OCI restore semantics while using the native accelerator for cache save/export;
 - GitHub Actions Cache lanes are optional references because many upstreams already publish those numbers in their own runs;
 - generated artifacts preserve the same benchmark JSON/Markdown shape used by the existing BoringCache benchmark repos.
 
@@ -24,7 +24,6 @@ Use the `Docker Cache Proof` workflow with:
 - `cache_lane=fresh` for cold plus warm rerun on the same pinned commit;
 - `cache_lane=rolling` for a continuous-commit sample on a stable case cache scope;
 - `include_gha_reference=false` unless we need an apples-to-apples reference in this repo;
-- `build_output=none` while cache-path proof is brought up.
+- `build_output=none`, `load`, or `local-registry` depending on the UX surface being measured.
 
-The native backend currently records cache-path evidence. Push/load emulation is tracked in [docs/TODO.md](docs/TODO.md) so we do not accidentally publish fake UX parity numbers.
-
+The `auto` lane records native accelerator evidence without switching warm reads away from the OCI registry-cache path.
