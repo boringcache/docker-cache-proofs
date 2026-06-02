@@ -1,4 +1,6 @@
 name: Docker Cache Proof
+run-name: >-
+  ${{ format('{0} | {1} | {2} | output={3}{4}{5}', inputs.case_id, inputs.ref_key, inputs.cache_lane, inputs.build_output, inputs.include_gha_reference && ' | +GHA' || '', inputs.cli_ref != '' && format(' | cli={0}', inputs.cli_ref) || '') }}
 
 on:
   workflow_dispatch:
@@ -50,7 +52,7 @@ permissions:
 
 jobs:
   case:
-    name: Resolve case
+    name: ${{ format('Resolve {0} ({1}, output={2})', inputs.case_id, inputs.ref_key, inputs.build_output) }}
     runs-on: ubuntu-latest
     outputs:
       case_id: ${{ steps.case.outputs.case_id }}
@@ -71,80 +73,155 @@ jobs:
         run: ./scripts/emit-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" "${{ inputs.build_output }}"
 
   boringcache-oci:
-    name: BoringCache OCI registry backend
+    name: ${{ format('{0} | BoringCache OCI | {1} | output={2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
     needs: case
-    uses: ./.github/workflows/reusable-docker-case-benchmark.yml
-    with:
-      strategy: boringcache
-      buildkit_backend: registry
-      cache_lane: ${{ inputs.cache_lane }}
-      benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-oci
-      cache_id: ${{ needs.case.outputs.cache_id }}
-      cache_scope_suffix: -${{ needs.case.outputs.case_id }}
-      case_id: ${{ needs.case.outputs.case_id }}
-      case_ref_key: ${{ needs.case.outputs.case_ref_key }}
-      project_repo: ${{ needs.case.outputs.project_repo }}
-      project_ref: ${{ needs.case.outputs.project_ref }}
-      dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
-      docker_context: ${{ needs.case.outputs.docker_context }}
-      image_tag: ${{ needs.case.outputs.image_tag }}
-      docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
-      build_output: ${{ inputs.build_output }}
-      runner_label: ${{ needs.case.outputs.runner_label }}
-      free_disk_space: ${{ needs.case.outputs.free_disk_space == 'true' }}
-      benchmark_workspace: boringcache/docker-cache-proof
-      cli_ref: ${{ inputs.cli_ref }}
-    secrets: inherit
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
+      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-bc-oci
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      BUILDKIT_BACKEND: registry
+      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
+      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
+      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
+    steps:
+      - name: Checkout benchmark repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Run BoringCache OCI proof
+        uses: ./.github/actions/docker-case-benchmark
+        with:
+          strategy: boringcache
+          buildkit_backend: registry
+          cache_lane: ${{ inputs.cache_lane }}
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-oci
+          cache_id: ${{ needs.case.outputs.cache_id }}
+          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          case_id: ${{ needs.case.outputs.case_id }}
+          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
+          project_repo: ${{ needs.case.outputs.project_repo }}
+          project_ref: ${{ needs.case.outputs.project_ref }}
+          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
+          docker_context: ${{ needs.case.outputs.docker_context }}
+          image_tag: ${{ needs.case.outputs.image_tag }}
+          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
+          build_output: ${{ inputs.build_output }}
+          runner_label: ${{ needs.case.outputs.runner_label }}
+          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
+          benchmark_workspace: boringcache/docker-cache-proof
+          cli_ref: ${{ inputs.cli_ref }}
 
   boringcache-auto:
-    name: BoringCache auto Docker backend
+    name: ${{ format('{0} | BoringCache Auto | {1} | output={2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
     needs: case
-    uses: ./.github/workflows/reusable-docker-case-benchmark.yml
-    with:
-      strategy: boringcache
-      buildkit_backend: auto
-      cache_lane: ${{ inputs.cache_lane }}
-      benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-auto
-      cache_id: ${{ needs.case.outputs.cache_id }}-auto
-      cache_scope_suffix: -${{ needs.case.outputs.case_id }}
-      case_id: ${{ needs.case.outputs.case_id }}
-      case_ref_key: ${{ needs.case.outputs.case_ref_key }}
-      project_repo: ${{ needs.case.outputs.project_repo }}
-      project_ref: ${{ needs.case.outputs.project_ref }}
-      dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
-      docker_context: ${{ needs.case.outputs.docker_context }}
-      image_tag: ${{ needs.case.outputs.image_tag }}
-      docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
-      build_output: ${{ inputs.build_output }}
-      runner_label: ${{ needs.case.outputs.runner_label }}
-      free_disk_space: ${{ needs.case.outputs.free_disk_space == 'true' }}
-      benchmark_workspace: boringcache/docker-cache-proof
-      cli_ref: ${{ inputs.cli_ref }}
-    secrets: inherit
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
+      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-bc-auto
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}-auto
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      BUILDKIT_BACKEND: auto
+      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
+      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
+      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
+    steps:
+      - name: Checkout benchmark repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Run BoringCache Auto proof
+        uses: ./.github/actions/docker-case-benchmark
+        with:
+          strategy: boringcache
+          buildkit_backend: auto
+          cache_lane: ${{ inputs.cache_lane }}
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-auto
+          cache_id: ${{ needs.case.outputs.cache_id }}-auto
+          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          case_id: ${{ needs.case.outputs.case_id }}
+          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
+          project_repo: ${{ needs.case.outputs.project_repo }}
+          project_ref: ${{ needs.case.outputs.project_ref }}
+          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
+          docker_context: ${{ needs.case.outputs.docker_context }}
+          image_tag: ${{ needs.case.outputs.image_tag }}
+          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
+          build_output: ${{ inputs.build_output }}
+          runner_label: ${{ needs.case.outputs.runner_label }}
+          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
+          benchmark_workspace: boringcache/docker-cache-proof
+          cli_ref: ${{ inputs.cli_ref }}
 
   github-actions-cache:
-    name: GitHub Actions Cache reference
+    name: ${{ format('{0} | GitHub Actions Cache | {1} | output={2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
     needs: case
     if: ${{ inputs.include_gha_reference }}
-    uses: ./.github/workflows/reusable-docker-case-benchmark.yml
-    with:
-      strategy: actions-cache
-      buildkit_backend: registry
-      cache_lane: ${{ inputs.cache_lane }}
-      benchmark_id: ${{ needs.case.outputs.benchmark_id }}-gha
-      cache_id: ${{ needs.case.outputs.cache_id }}-gha
-      cache_scope_suffix: -${{ needs.case.outputs.case_id }}
-      case_id: ${{ needs.case.outputs.case_id }}
-      case_ref_key: ${{ needs.case.outputs.case_ref_key }}
-      project_repo: ${{ needs.case.outputs.project_repo }}
-      project_ref: ${{ needs.case.outputs.project_ref }}
-      dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
-      docker_context: ${{ needs.case.outputs.docker_context }}
-      image_tag: ${{ needs.case.outputs.image_tag }}
-      docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
-      build_output: ${{ inputs.build_output }}
-      runner_label: ${{ needs.case.outputs.runner_label }}
-      free_disk_space: ${{ needs.case.outputs.free_disk_space == 'true' }}
-      benchmark_workspace: boringcache/docker-cache-proof
-      cli_ref: ${{ inputs.cli_ref }}
-    secrets: inherit
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
+      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-gha
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}-gha
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      BUILDKIT_BACKEND: registry
+      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
+      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
+      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
+    steps:
+      - name: Checkout benchmark repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Run GitHub Actions Cache proof
+        uses: ./.github/actions/docker-case-benchmark
+        with:
+          strategy: actions-cache
+          buildkit_backend: registry
+          cache_lane: ${{ inputs.cache_lane }}
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-gha
+          cache_id: ${{ needs.case.outputs.cache_id }}-gha
+          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          case_id: ${{ needs.case.outputs.case_id }}
+          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
+          project_repo: ${{ needs.case.outputs.project_repo }}
+          project_ref: ${{ needs.case.outputs.project_ref }}
+          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
+          docker_context: ${{ needs.case.outputs.docker_context }}
+          image_tag: ${{ needs.case.outputs.image_tag }}
+          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
+          build_output: ${{ inputs.build_output }}
+          runner_label: ${{ needs.case.outputs.runner_label }}
+          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
+          benchmark_workspace: boringcache/docker-cache-proof
+          cli_ref: ${{ inputs.cli_ref }}
