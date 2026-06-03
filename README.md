@@ -24,12 +24,12 @@ The GitHub repository is currently `boringcache/docker-cache-proofs`; the aligne
 
 Use the Docker lane in the `Docker Cache Proof` workflow with:
 
-- `cache_lane=fresh` for cold plus warm rerun on the same pinned commit;
-- `cache_lane=rolling` for a continuous-commit sample on a stable case cache scope;
+- `cache_lane=fresh` for one cold build on the pinned commit;
+- `cache_lane=rolling` for one continuous-commit build on a stable case cache scope;
 - `include_gha_reference=false` unless we need an apples-to-apples reference in this repo;
 - `build_output=none`, `load`, or `local-registry` depending on the UX surface being measured.
 
-The `auto` lane records native accelerator evidence without switching warm reads away from the OCI registry-cache path.
+Fresh lanes may export cache for storage accounting, but they do not run a follow-up warm rebuild. Rolling lanes own prior-cache import/update evidence.
 
 For ordered fresh + rolling runs, use:
 

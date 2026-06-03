@@ -21,10 +21,11 @@ Pain source:
 - Workflow cache comment: https://github.com/berntpopp/phentrieve/blob/main/.github/workflows/docker-publish.yml#L113-L117.
 
 BoringCache proof runs:
+Note: these proof runs predate the single-phase lane split; current `fresh` runs record one cold build only.
 
 | Proof | Run | Auto | OCI | Read |
 |---|---|---:|---:|---|
-| Fresh main | https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643 | 409s cold, 4s warm | 689s cold, 3s warm | Same-source warm path is excellent; fresh includes intentional cold cache population. |
+| Historical fresh main | https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643 | 409s cold, 4s warm | 689s cold, 3s warm | Pre-split run; current fresh lane records the cold build only. |
 | Rolling1 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26842722855 | 368s commit | 537s commit | Heavy rolling delta; pain is cache update/export after import. |
 | Rolling2 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399 | 8s commit | 7s commit | Small rolling delta; expected partially warm behavior. |
 | Rolling3 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26843568848 | 9s commit | 8s commit | Confirms rolling2 was not a one-off. |

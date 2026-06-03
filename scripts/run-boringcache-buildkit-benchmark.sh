@@ -444,7 +444,7 @@ while true; do
       [[ -n "${CACHE_FROM:-}" ]] && cache_args+=(--cache-from "$CACHE_FROM")
       [[ -n "${CACHE_TO:-}" ]] && cache_args+=(--cache-to "$CACHE_TO")
     fi
-  elif [[ "$mode" == "seed-cache" ]]; then
+  elif [[ "$mode" =~ ^(fresh|seed-cache)$ ]]; then
     # --no-cache is required for type=registry export: without it, buildx
     # sees cached layers from the builder and skips pushing blobs to the
     # registry proxy, so the proxy never uploads to BoringCache backend.
@@ -506,7 +506,7 @@ while true; do
       fi
       exit 1
     fi
-    if [[ "$mode" =~ ^(full|seed-cache)$ ]] && grep -Eq "$cache_export_pattern" "$build_log"; then
+    if [[ "$mode" =~ ^(full|fresh|seed-cache)$ ]] && grep -Eq "$cache_export_pattern" "$build_log"; then
       capture_proxy_status
       write_build_metrics
       write_build_diagnostics
@@ -517,7 +517,7 @@ while true; do
       exit 1
     fi
     capture_proxy_status
-    if [[ "$backend" == "registry" && "$mode" =~ ^(seed-cache|full)$ ]]; then
+    if [[ "$backend" == "registry" && "$mode" =~ ^(fresh|seed-cache|full)$ ]]; then
       # Stop proxy gracefully so it can flush pending uploads.
       echo "Flushing proxy cache to backend..."
       flush_action_proxy

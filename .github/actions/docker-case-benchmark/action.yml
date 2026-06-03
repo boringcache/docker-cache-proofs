@@ -158,8 +158,8 @@ runs:
     if: "${{ inputs.build_output == 'local-registry' }}"
     run: docker run -d -p 5001:5000 --name cache-proof-registry registry:2
     shell: bash
-  - name: Start seed timing
-    id: seed_timing_start
+  - name: Start build timing
+    id: build_timing_start
     run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
     shell: bash
   - name: Prepare benchmark scope
@@ -218,7 +218,7 @@ runs:
     env:
       BORINGCACHE_RESTORE_TOKEN: "${{ env.BORINGCACHE_RESTORE_TOKEN }}"
       BORINGCACHE_SAVE_TOKEN: "${{ env.BORINGCACHE_SAVE_TOKEN }}"
-      BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-seed-observability.jsonl"
+      BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-build-observability.jsonl"
   - name: Set up Docker Buildx for BoringCache auto
     if: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'auto' }}"
     id: auto_buildx
@@ -277,7 +277,7 @@ runs:
       CACHE_SCOPE_PRIMARY: "${{ steps.scope.outputs.cache_scope_primary }}"
       CACHE_SCOPE_FALLBACK: "${{ steps.scope.outputs.cache_scope_fallback }}"
       BORINGCACHE_REGISTRY_PROXY_TAGS: "${{ steps.scope.outputs.registry_proxy_tags }}"
-      BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-seed-observability.jsonl"
+      BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-build-observability.jsonl"
       ALLOW_BORINGCACHE_ROLLING_BOOTSTRAP: "${{ inputs.cache_lane == 'rolling' && 'true' || '' }}"
       IMAGE_TAG: "${{ inputs.image_tag }}"
       DOCKERFILE_PATH: "${{ inputs.dockerfile_path }}"
@@ -288,8 +288,8 @@ runs:
 
       if [[ "${{ inputs.strategy }}" == "boringcache" ]]; then
         metrics_file="${RUNNER_TEMP}/cold-build-metrics.env"
-        diagnostics_file="benchmark-diagnostics/${BENCHMARK_ID}-boringcache-${CACHE_LANE}-seed.txt"
-        observability_artifact="benchmark-diagnostics/${BENCHMARK_ID}-boringcache-${CACHE_LANE}-seed-observability.jsonl"
+        diagnostics_file="benchmark-diagnostics/${BENCHMARK_ID}-boringcache-${CACHE_LANE}-build.txt"
+        observability_artifact="benchmark-diagnostics/${BENCHMARK_ID}-boringcache-${CACHE_LANE}-build-observability.jsonl"
         rm -f "$metrics_file"
         rm -f "$diagnostics_file"
         rm -f "$observability_artifact"
@@ -304,21 +304,21 @@ runs:
             echo "This run will publish the rolling-scope OCI alias for the next continuous-commit sample." >&2
           fi
         fi
-        phase_start="${{ steps.seed_timing_start.outputs.started_at }}"
+        phase_start="${{ steps.build_timing_start.outputs.started_at }}"
         start="$(date +%s)"
         set +e
         benchmark_script="./scripts/run-boringcache-buildkit-benchmark.sh"
-        BENCHMARK_METRICS_OUTPUT="$metrics_file" BENCHMARK_DIAGNOSTICS_OUTPUT="$diagnostics_file" "$benchmark_script" ${{ inputs.cache_lane == 'rolling' && 'full' || 'seed-cache' }}
+        BENCHMARK_METRICS_OUTPUT="$metrics_file" BENCHMARK_DIAGNOSTICS_OUTPUT="$diagnostics_file" "$benchmark_script" ${{ inputs.cache_lane == 'rolling' && 'full' || 'fresh' }}
         status="$?"
         set -e
         end="$(date +%s)"
         if [[ -s "$diagnostics_file" ]]; then
           {
-            echo "seed_phase_started_at=${phase_start}"
-            echo "seed_build_started_at=${start}"
-            echo "seed_build_finished_at=${end}"
-            echo "seed_phase_wall_seconds=$((end - phase_start))"
-            echo "seed_build_wall_seconds=$((end - start))"
+            echo "build_phase_started_at=${phase_start}"
+            echo "build_started_at=${start}"
+            echo "build_finished_at=${end}"
+            echo "build_phase_wall_seconds=$((end - phase_start))"
+            echo "build_wall_seconds=$((end - start))"
           } >> "$diagnostics_file"
         fi
         if [[ -s "$BORINGCACHE_OBSERVABILITY_JSONL_PATH" ]]; then
@@ -343,7 +343,7 @@ runs:
           fi
         fi
       else
-        build_log="$(mktemp /tmp/${BENCHMARK_ID}-ac-seed.XXXXXX.log)"
+        build_log="$(mktemp /tmp/${BENCHMARK_ID}-ac-build.XXXXXX.log)"
         find_step_id() {
           local pattern="$1"
           sed -nE "s/^#([0-9]+) ${pattern}.*/\\1/p" "$build_log" | tail -n1
@@ -355,7 +355,7 @@ runs:
         }
 
         selected_scope="$CACHE_SCOPE_PRIMARY"
-        phase_start="${{ steps.seed_timing_start.outputs.started_at }}"
+        phase_start="${{ steps.build_timing_start.outputs.started_at }}"
         start="$(date +%s)"
         attempt=1
         while true; do
@@ -409,7 +409,7 @@ runs:
           fi
 
           if [[ "$attempt" -ge 2 ]]; then
-            echo "Cold + seed cache build failed after retry" >&2
+            echo "Docker build failed after retry" >&2
             exit "$status"
           fi
 
@@ -435,7 +435,7 @@ runs:
         done
 
         if [[ "$export_verified" -ne 1 ]]; then
-          echo "Cold + seed cache export probe failed: no index cache entry was touched for index-${selected_scope}" >&2
+          echo "Docker cache export probe failed: no index cache entry was touched for index-${selected_scope}" >&2
           exit 1
         fi
 
@@ -457,7 +457,7 @@ runs:
         echo "buildkit_cached_steps=${cached_steps}" >> "$GITHUB_OUTPUT"
       fi
     shell: bash
-  - name: Upload seed diagnostics
+  - name: Upload build diagnostics
     if: "${{ inputs.strategy == 'boringcache' && always() }}"
     uses: actions/upload-artifact@v6
     with:
@@ -475,297 +475,7 @@ runs:
     if: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'auto' && always() }}"
     uses: actions/upload-artifact@v6
     with:
-      name: benchmark-native-tool-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}-seed
-      path: benchmark-native-tool/native-tool.json
-      if-no-files-found: ignore
-  - name: Prepare warm source tree
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    run: ./scripts/prepare-case-source.sh "$CASE_ID" "$CASE_REF_KEY"
-    shell: bash
-  - name: Start warm timing
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    id: scenario_timing_start
-    run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
-    shell: bash
-  - name: Configure warm BoringCache Docker cache
-    if: "${{ inputs.cache_lane != 'rolling' && inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' }}"
-    id: warm_docker_cache
-    uses: boringcache/one@v1
-    with:
-      cli-version: "${{ inputs.cli_ref != '' && 'skip' || '' }}"
-      setup: none
-      cache-runtime: false
-      mode: docker
-      docker-command: setup
-      workspace: "${{ env.BENCHMARK_WORKSPACE }}"
-      cache-tag: "${{ steps.scope.outputs.cache_scope }}"
-      registry-tag: "${{ steps.scope.outputs.registry_proxy_tags }}"
-      proxy-no-git: 'true'
-      read-only: true
-      driver-opts: |
-        network=host
-      verbose: true
-    env:
-      BORINGCACHE_RESTORE_TOKEN: "${{ env.BORINGCACHE_RESTORE_TOKEN }}"
-  - name: Set up warm Docker Buildx for BoringCache auto
-    if: "${{ inputs.cache_lane != 'rolling' && inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'auto' }}"
-    id: warm_auto_buildx
-    uses: docker/setup-buildx-action@v4
-    with:
-      driver-opts: |
-        network=host
-  - name: Set up warm Docker Buildx
-    if: "${{ inputs.cache_lane != 'rolling' && inputs.strategy == 'actions-cache' }}"
-    id: warm_buildx
-    uses: docker/setup-buildx-action@v4
-    with:
-      driver-opts: |
-        network=host
-  - name: Expose GitHub runtime for warm Buildx cache
-    if: "${{ inputs.cache_lane != 'rolling' && inputs.strategy == 'actions-cache' }}"
-    uses: crazy-max/ghaction-github-runtime@v4
-  - name: Prune local BuildKit state before warm
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    run: |
-      set -euo pipefail
-      builder=""
-      if [[ "${{ inputs.strategy }}" == "boringcache" && "${{ inputs.buildkit_backend }}" == "registry" ]]; then
-        builder="${{ steps.warm_docker_cache.outputs.buildx-name }}"
-      elif [[ "${{ inputs.strategy }}" == "boringcache" && "${{ inputs.buildkit_backend }}" == "auto" ]]; then
-        builder="${{ steps.warm_auto_buildx.outputs.name }}"
-      elif [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
-        builder="${{ steps.warm_buildx.outputs.name }}"
-      fi
-      if [[ -n "$builder" ]]; then
-        docker buildx prune -af --builder "$builder" || true
-      else
-        docker buildx prune -af || true
-      fi
-      docker builder prune -af || true
-    shell: bash
-  - name: Run warm build 1
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    id: warm1_build
-    env:
-      BORINGCACHE_RESTORE_TOKEN: "${{ env.BORINGCACHE_RESTORE_TOKEN }}"
-      BORINGCACHE_SAVE_TOKEN: ''
-      BORINGCACHE_PROXY_LOG_PATH: "${{ steps.warm_docker_cache.outputs.proxy-log-path }}"
-      BORINGCACHE_PROXY_PORT: "${{ steps.warm_docker_cache.outputs.proxy-port }}"
-      BORINGCACHE_CACHE_IMPORT_READY: "${{ steps.warm_docker_cache.outputs.docker-cache-import-ready }}"
-      BORINGCACHE_CACHE_REQUESTED_FROM_REFS: "${{ steps.warm_docker_cache.outputs.docker-cache-requested-from-refs }}"
-      BORINGCACHE_CACHE_USED_FROM_REFS: "${{ steps.warm_docker_cache.outputs.docker-cache-from-refs }}"
-      BORINGCACHE_CACHE_UNREADABLE_FROM_REFS: "${{ steps.warm_docker_cache.outputs.docker-cache-unreadable-from-refs }}"
-      BORINGCACHE_DOCKER_PROMOTION_REFS: "${{ steps.warm_docker_cache.outputs.docker-cache-promotion-refs }}"
-      BUILDER: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && steps.warm_docker_cache.outputs.buildx-name || inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'auto' && steps.warm_auto_buildx.outputs.name || inputs.strategy == 'actions-cache' && steps.warm_buildx.outputs.name || '' }}"
-      CACHE_FROM: "${{ steps.warm_docker_cache.outputs.cache-from }}"
-      CACHE_TO: "${{ steps.warm_docker_cache.outputs.cache-to }}"
-      CACHE_SCOPE: "${{ inputs.strategy == 'actions-cache' && steps.cold_baseline_build.outputs.cache_scope || steps.scope.outputs.cache_scope }}"
-      BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-warm1-observability.jsonl"
-      IMAGE_TAG: "${{ inputs.image_tag }}"
-      DOCKERFILE_PATH: "${{ inputs.dockerfile_path }}"
-      BENCHMARK_DOCKER_CONTEXT: "${{ inputs.docker_context }}"
-    run: |
-      set -euo pipefail
-
-      if [[ "${{ inputs.strategy }}" == "boringcache" ]]; then
-        metrics_file="${RUNNER_TEMP}/warm1-build-metrics.env"
-        rm -f "$metrics_file"
-        if [[ "$BUILDKIT_BACKEND" == "registry" ]] && { [[ "${BORINGCACHE_CACHE_IMPORT_READY:-}" != "true" ]] || [[ -z "${CACHE_FROM:-}" && -z "${BORINGCACHE_CACHE_USED_FROM_REFS:-}" ]]; }; then
-          echo "BoringCache Docker warm import was not ready; refusing invalid warm sample." >&2
-          echo "import ready: ${BORINGCACHE_CACHE_IMPORT_READY:-}" >&2
-          echo "requested refs: ${BORINGCACHE_CACHE_REQUESTED_FROM_REFS:-}" >&2
-          echo "used refs: ${BORINGCACHE_CACHE_USED_FROM_REFS:-}" >&2
-          echo "unreadable refs: ${BORINGCACHE_CACHE_UNREADABLE_FROM_REFS:-}" >&2
-          exit 1
-        fi
-        phase_start="${{ steps.scenario_timing_start.outputs.started_at }}"
-        start="$(date +%s)"
-        set +e
-        benchmark_script="./scripts/run-boringcache-buildkit-benchmark.sh"
-        BENCHMARK_METRICS_OUTPUT="$metrics_file" "$benchmark_script" partial-warm
-        status="$?"
-        set -e
-        end="$(date +%s)"
-        if [[ "$status" -ne 0 ]]; then
-          if [[ -s "$metrics_file" ]]; then
-            cat "$metrics_file" >&2
-          fi
-          exit "$status"
-        fi
-        echo "seconds=$((end - phase_start))" >> "$GITHUB_OUTPUT"
-        echo "build_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
-        if [[ -s "$metrics_file" ]]; then
-          cat "$metrics_file" >> "$GITHUB_OUTPUT"
-          native_tool_evidence="$(grep "^native_tool_evidence=" "$metrics_file" | head -n1 | cut -d= -f2- || true)"
-          if [[ "$BUILDKIT_BACKEND" == "auto" && -n "$native_tool_evidence" && -s "$native_tool_evidence" ]]; then
-            mkdir -p benchmark-native-tool
-            cp "$native_tool_evidence" benchmark-native-tool/native-tool.json
-          fi
-        fi
-      else
-        build_log="$(mktemp /tmp/${BENCHMARK_ID}-ac-warm1.XXXXXX.log)"
-        find_step_id() {
-          local pattern="$1"
-          sed -nE "s/^#([0-9]+) ${pattern}.*/\\1/p" "$build_log" | tail -n1
-        }
-        find_step_seconds() {
-          local step_id="$1"
-          [[ -n "$step_id" ]] || return 0
-          sed -nE "s/^#${step_id} DONE ([0-9]+(\\.[0-9]+)?)s$/\\1/p" "$build_log" | tail -n1
-        }
-
-        phase_start="${{ steps.scenario_timing_start.outputs.started_at }}"
-        start="$(date +%s)"
-        extra_args=()
-        output_args=()
-        while IFS= read -r arg; do
-          [[ -n "$arg" ]] || continue
-          extra_args+=("$arg")
-        done <<< "${DOCKER_BUILD_EXTRA_ARGS:-}"
-        case "${BENCHMARK_BUILD_OUTPUT:-none}" in
-          none)
-            ;;
-          load)
-            output_args+=(--load)
-            ;;
-          local-registry)
-            output_args+=(--push)
-            ;;
-          *)
-            echo "Unknown BENCHMARK_BUILD_OUTPUT: ${BENCHMARK_BUILD_OUTPUT}" >&2
-            exit 1
-            ;;
-        esac
-        attempt=1
-        while true; do
-          : > "$build_log"
-          set +e
-          DOCKER_BUILDKIT=1 docker buildx build \
-            --builder "$BUILDER" \
-            --file ${{ inputs.dockerfile_path }} \
-            --tag ${{ inputs.image_tag }} \
-            --progress=plain \
-            "${extra_args[@]}" \
-            --cache-from "type=gha,scope=${CACHE_SCOPE}" \
-            "${output_args[@]}" \
-            ${{ inputs.docker_context }} 2>&1 | tee "$build_log"
-          status=${PIPESTATUS[0]}
-          set -e
-
-          if [[ "$status" -eq 0 ]]; then
-            break
-          fi
-
-          if [[ "$attempt" -ge 2 ]]; then
-            echo "Warm build 1 failed after retry" >&2
-            exit "$status"
-          fi
-
-          attempt=$((attempt + 1))
-          sleep 5
-        done
-
-        end="$(date +%s)"
-        echo "seconds=$((end - phase_start))" >> "$GITHUB_OUTPUT"
-        echo "build_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
-        import_step="$(find_step_id "importing cache manifest from")"
-        import_seconds="$(find_step_seconds "$import_step")"
-        if [[ -n "$import_seconds" ]]; then
-          echo "docker_cache_import_seconds=${import_seconds}" >> "$GITHUB_OUTPUT"
-        fi
-        cached_steps="$(grep -Ec '^#[0-9]+ CACHED$' "$build_log" || true)"
-        echo "buildkit_cached_steps=${cached_steps}" >> "$GITHUB_OUTPUT"
-      fi
-    shell: bash
-  - name: Capture scenario timing
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    id: phase_timing
-    run: |
-      set -euo pipefail
-      seconds=""
-      build_seconds=""
-      cache_import_status=""
-      docker_cache_import_seconds=""
-      buildkit_cached_steps=""
-      metric_names=(oci_hydration_policy oci_body_local_hits oci_body_remote_fetches oci_body_local_bytes oci_body_remote_bytes oci_body_local_duration_ms oci_body_remote_duration_ms startup_oci_body_inserted startup_oci_body_failures startup_oci_body_cold_blobs startup_oci_body_duration_ms)
-      for metric_name in "${metric_names[@]}"; do
-        printf -v "$metric_name" '%s' ''
-      done
-      seconds="${{ steps.warm1_build.outputs.seconds }}"
-      build_seconds="${{ steps.warm1_build.outputs.build_seconds }}"
-      cache_import_status="${{ steps.warm1_build.outputs.cache_import_status }}"
-      docker_cache_import_seconds="${{ steps.warm1_build.outputs.docker_cache_import_seconds }}"
-      buildkit_cached_steps="${{ steps.warm1_build.outputs.buildkit_cached_steps }}"
-      oci_hydration_policy="${{ steps.warm1_build.outputs.oci_hydration_policy }}"
-      oci_body_local_hits="${{ steps.warm1_build.outputs.oci_body_local_hits }}"
-      oci_body_remote_fetches="${{ steps.warm1_build.outputs.oci_body_remote_fetches }}"
-      oci_body_local_bytes="${{ steps.warm1_build.outputs.oci_body_local_bytes }}"
-      oci_body_remote_bytes="${{ steps.warm1_build.outputs.oci_body_remote_bytes }}"
-      oci_body_local_duration_ms="${{ steps.warm1_build.outputs.oci_body_local_duration_ms }}"
-      oci_body_remote_duration_ms="${{ steps.warm1_build.outputs.oci_body_remote_duration_ms }}"
-      startup_oci_body_inserted="${{ steps.warm1_build.outputs.startup_oci_body_inserted }}"
-      startup_oci_body_failures="${{ steps.warm1_build.outputs.startup_oci_body_failures }}"
-      startup_oci_body_cold_blobs="${{ steps.warm1_build.outputs.startup_oci_body_cold_blobs }}"
-      startup_oci_body_duration_ms="${{ steps.warm1_build.outputs.startup_oci_body_duration_ms }}"
-      if [[ -z "${seconds}" ]]; then
-        echo "No timing captured for warm1" >&2
-        exit 1
-      fi
-      echo "seconds=${seconds}" >> "$GITHUB_OUTPUT"
-      echo "build_seconds=${build_seconds}" >> "$GITHUB_OUTPUT"
-      if [[ -n "${cache_import_status}" ]]; then
-        echo "cache_import_status=${cache_import_status}" >> "$GITHUB_OUTPUT"
-      fi
-      if [[ -n "${docker_cache_import_seconds}" ]]; then
-        echo "docker_cache_import_seconds=${docker_cache_import_seconds}" >> "$GITHUB_OUTPUT"
-      fi
-      if [[ -n "${buildkit_cached_steps}" ]]; then
-        echo "buildkit_cached_steps=${buildkit_cached_steps}" >> "$GITHUB_OUTPUT"
-      fi
-      for metric_name in "${metric_names[@]}"; do
-        metric_value="${!metric_name}"
-        if [[ -n "$metric_value" ]]; then
-          echo "${metric_name}=${metric_value}" >> "$GITHUB_OUTPUT"
-        fi
-      done
-    shell: bash
-  - name: Persist scenario timing artifact
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    run: |
-      set -euo pipefail
-      mkdir -p benchmark-phase
-      cat > "benchmark-phase/warm1.env" <<EOF
-      phase=warm1
-      seconds=${{ steps.phase_timing.outputs.seconds }}
-      build_seconds=${{ steps.phase_timing.outputs.build_seconds }}
-      cache_import_status=${{ steps.phase_timing.outputs.cache_import_status }}
-      docker_cache_import_seconds=${{ steps.phase_timing.outputs.docker_cache_import_seconds }}
-      buildkit_cached_steps=${{ steps.phase_timing.outputs.buildkit_cached_steps }}
-      oci_hydration_policy=${{ steps.phase_timing.outputs.oci_hydration_policy }}
-      oci_body_local_hits=${{ steps.phase_timing.outputs.oci_body_local_hits }}
-      oci_body_remote_fetches=${{ steps.phase_timing.outputs.oci_body_remote_fetches }}
-      oci_body_local_bytes=${{ steps.phase_timing.outputs.oci_body_local_bytes }}
-      oci_body_remote_bytes=${{ steps.phase_timing.outputs.oci_body_remote_bytes }}
-      oci_body_local_duration_ms=${{ steps.phase_timing.outputs.oci_body_local_duration_ms }}
-      oci_body_remote_duration_ms=${{ steps.phase_timing.outputs.oci_body_remote_duration_ms }}
-      startup_oci_body_inserted=${{ steps.phase_timing.outputs.startup_oci_body_inserted }}
-      startup_oci_body_failures=${{ steps.phase_timing.outputs.startup_oci_body_failures }}
-      startup_oci_body_cold_blobs=${{ steps.phase_timing.outputs.startup_oci_body_cold_blobs }}
-      startup_oci_body_duration_ms=${{ steps.phase_timing.outputs.startup_oci_body_duration_ms }}
-      EOF
-    shell: bash
-  - name: Upload scenario timing artifact
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    uses: actions/upload-artifact@v6
-    with:
-      name: benchmark-phase-${{ inputs.benchmark_id }}-${{ inputs.strategy }}-warm1
-      path: benchmark-phase/warm1.env
-      if-no-files-found: error
-  - name: Upload native BuildKit evidence
-    if: "${{ inputs.cache_lane != 'rolling' && inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'auto' }}"
-    uses: actions/upload-artifact@v6
-    with:
-      name: benchmark-native-tool-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}-warm1
+      name: benchmark-native-tool-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}-build
       path: benchmark-native-tool/native-tool.json
       if-no-files-found: ignore
   - name: Checkout benchmark repo helpers
@@ -782,48 +492,6 @@ runs:
       workspace: "${{ env.BENCHMARK_WORKSPACE }}"
       cli-platform: "${{ inputs.cli_platform }}"
       cache-runtime: false
-  - name: Collect scenario timings
-    if: "${{ inputs.cache_lane != 'rolling' }}"
-    id: timings
-    run: |
-      set -euo pipefail
-      parse_phase() {
-        local phase="$1"
-        local file="benchmark-phase/${phase}.env"
-        if [[ ! -f "$file" ]]; then
-          echo "Missing timing artifact for phase ${phase}" >&2
-          ls -R benchmark-phase || true
-          exit 1
-        fi
-        local seconds
-        seconds="$(grep "^seconds=" "$file" | head -n1 | cut -d= -f2-)"
-        if [[ -z "${seconds}" ]]; then
-          echo "Timing artifact for phase ${phase} has empty seconds" >&2
-          cat "$file" >&2
-          exit 1
-        fi
-        local key="${phase//-/_}"
-        echo "${key}_seconds=${seconds}" >> "$GITHUB_OUTPUT"
-        local build_seconds
-        build_seconds="$(grep "^build_seconds=" "$file" | head -n1 | cut -d= -f2- || true)"
-        if [[ -n "${build_seconds}" ]]; then
-          echo "${key}_build_seconds=${build_seconds}" >> "$GITHUB_OUTPUT"
-        fi
-        local docker_cache_import_seconds
-        docker_cache_import_seconds="$(grep "^docker_cache_import_seconds=" "$file" | head -n1 | cut -d= -f2- || true)"
-        if [[ -n "${docker_cache_import_seconds}" ]]; then
-          echo "${key}_docker_cache_import_seconds=${docker_cache_import_seconds}" >> "$GITHUB_OUTPUT"
-        fi
-        metric_names=(cache_import_status buildkit_cached_steps oci_hydration_policy oci_body_local_hits oci_body_remote_fetches oci_body_local_bytes oci_body_remote_bytes oci_body_local_duration_ms oci_body_remote_duration_ms startup_oci_body_inserted startup_oci_body_failures startup_oci_body_cold_blobs startup_oci_body_duration_ms)
-        for metric_name in "${metric_names[@]}"; do
-          metric_value="$(grep "^${metric_name}=" "$file" | head -n1 | cut -d= -f2- || true)"
-          if [[ -n "${metric_value}" ]]; then
-            echo "${key}_${metric_name}=${metric_value}" >> "$GITHUB_OUTPUT"
-          fi
-        done
-      }
-      parse_phase warm1
-    shell: bash
   - name: Measure BoringCache storage usage
     if: "${{ inputs.strategy == 'boringcache' }}"
     id: bc_cache_size
@@ -881,22 +549,6 @@ runs:
       SEED_OCI_UPLOAD_REQUESTED_BLOBS: "${{ steps.cold_baseline_build.outputs.oci_upload_requested_blobs }}"
       SEED_OCI_UPLOAD_ALREADY_PRESENT: "${{ steps.cold_baseline_build.outputs.oci_upload_already_present }}"
       SEED_OCI_UPLOAD_BATCH_SECONDS: "${{ steps.cold_baseline_build.outputs.oci_upload_batch_seconds }}"
-      WARM1_SECONDS: "${{ steps.timings.outputs.warm1_seconds }}"
-      WARM1_BUILD_SECONDS: "${{ steps.timings.outputs.warm1_build_seconds }}"
-      WARM1_DOCKER_CACHE_IMPORT_SECONDS: "${{ steps.timings.outputs.warm1_docker_cache_import_seconds }}"
-      WARM1_BUILDKIT_CACHED_STEPS: "${{ steps.timings.outputs.warm1_buildkit_cached_steps }}"
-      WARM1_CACHE_IMPORT_STATUS: "${{ steps.timings.outputs.warm1_cache_import_status }}"
-      WARM1_OCI_HYDRATION_POLICY: "${{ steps.timings.outputs.warm1_oci_hydration_policy }}"
-      WARM1_OCI_BODY_LOCAL_HITS: "${{ steps.timings.outputs.warm1_oci_body_local_hits }}"
-      WARM1_OCI_BODY_REMOTE_FETCHES: "${{ steps.timings.outputs.warm1_oci_body_remote_fetches }}"
-      WARM1_OCI_BODY_LOCAL_BYTES: "${{ steps.timings.outputs.warm1_oci_body_local_bytes }}"
-      WARM1_OCI_BODY_REMOTE_BYTES: "${{ steps.timings.outputs.warm1_oci_body_remote_bytes }}"
-      WARM1_OCI_BODY_LOCAL_DURATION_MS: "${{ steps.timings.outputs.warm1_oci_body_local_duration_ms }}"
-      WARM1_OCI_BODY_REMOTE_DURATION_MS: "${{ steps.timings.outputs.warm1_oci_body_remote_duration_ms }}"
-      WARM1_STARTUP_OCI_BODY_INSERTED: "${{ steps.timings.outputs.warm1_startup_oci_body_inserted }}"
-      WARM1_STARTUP_OCI_BODY_FAILURES: "${{ steps.timings.outputs.warm1_startup_oci_body_failures }}"
-      WARM1_STARTUP_OCI_BODY_COLD_BLOBS: "${{ steps.timings.outputs.warm1_startup_oci_body_cold_blobs }}"
-      WARM1_STARTUP_OCI_BODY_DURATION_MS: "${{ steps.timings.outputs.warm1_startup_oci_body_duration_ms }}"
       BC_BYTES: "${{ steps.bc_cache_size.outputs.bytes }}"
       BC_STORAGE_BREAKDOWN_PATH: "${{ steps.bc_cache_size.outputs.breakdown_path }}"
       AC_BYTES: "${{ steps.ac_cache_size.outputs.bytes }}"
@@ -923,17 +575,14 @@ runs:
       emit cold_build_seconds "$SEED_COLD_BUILD_SECONDS"
       emit docker_cache_export_seconds "$SEED_DOCKER_EXPORT_SECONDS"
 
+      emit warm1_seconds ""
+      emit warm1_build_seconds ""
       if [[ "$CACHE_LANE" == "rolling" ]]; then
-        emit warm1_seconds ""
-        emit warm1_build_seconds ""
         emit docker_cache_import_seconds "$SEED_DOCKER_IMPORT_SECONDS"
         emit buildkit_cached_steps "$SEED_BUILDKIT_CACHED_STEPS"
       else
-        require warm1_seconds "$WARM1_SECONDS"
-        emit warm1_seconds "$WARM1_SECONDS"
-        emit warm1_build_seconds "$WARM1_BUILD_SECONDS"
-        emit docker_cache_import_seconds "$WARM1_DOCKER_CACHE_IMPORT_SECONDS"
-        emit buildkit_cached_steps "$WARM1_BUILDKIT_CACHED_STEPS"
+        emit docker_cache_import_seconds ""
+        emit buildkit_cached_steps ""
       fi
 
       if [[ "$STRATEGY" == "boringcache" ]]; then
@@ -951,19 +600,18 @@ runs:
           startup_oci_body_cold_blobs="$SEED_STARTUP_OCI_BODY_COLD_BLOBS"
           startup_oci_body_duration_ms="$SEED_STARTUP_OCI_BODY_DURATION_MS"
         else
-          require cache_import_status "$WARM1_CACHE_IMPORT_STATUS"
-          cache_import_status="$WARM1_CACHE_IMPORT_STATUS"
-          oci_hydration_policy="$WARM1_OCI_HYDRATION_POLICY"
-          oci_body_local_hits="$WARM1_OCI_BODY_LOCAL_HITS"
-          oci_body_remote_fetches="$WARM1_OCI_BODY_REMOTE_FETCHES"
-          oci_body_local_bytes="$WARM1_OCI_BODY_LOCAL_BYTES"
-          oci_body_remote_bytes="$WARM1_OCI_BODY_REMOTE_BYTES"
-          oci_body_local_duration_ms="$WARM1_OCI_BODY_LOCAL_DURATION_MS"
-          oci_body_remote_duration_ms="$WARM1_OCI_BODY_REMOTE_DURATION_MS"
-          startup_oci_body_inserted="$WARM1_STARTUP_OCI_BODY_INSERTED"
-          startup_oci_body_failures="$WARM1_STARTUP_OCI_BODY_FAILURES"
-          startup_oci_body_cold_blobs="$WARM1_STARTUP_OCI_BODY_COLD_BLOBS"
-          startup_oci_body_duration_ms="$WARM1_STARTUP_OCI_BODY_DURATION_MS"
+          cache_import_status=""
+          oci_hydration_policy="$SEED_OCI_HYDRATION_POLICY"
+          oci_body_local_hits="$SEED_OCI_BODY_LOCAL_HITS"
+          oci_body_remote_fetches="$SEED_OCI_BODY_REMOTE_FETCHES"
+          oci_body_local_bytes="$SEED_OCI_BODY_LOCAL_BYTES"
+          oci_body_remote_bytes="$SEED_OCI_BODY_REMOTE_BYTES"
+          oci_body_local_duration_ms="$SEED_OCI_BODY_LOCAL_DURATION_MS"
+          oci_body_remote_duration_ms="$SEED_OCI_BODY_REMOTE_DURATION_MS"
+          startup_oci_body_inserted="$SEED_STARTUP_OCI_BODY_INSERTED"
+          startup_oci_body_failures="$SEED_STARTUP_OCI_BODY_FAILURES"
+          startup_oci_body_cold_blobs="$SEED_STARTUP_OCI_BODY_COLD_BLOBS"
+          startup_oci_body_duration_ms="$SEED_STARTUP_OCI_BODY_DURATION_MS"
         fi
 
         emit cache_import_status "$cache_import_status"
@@ -991,9 +639,9 @@ runs:
         emit bytes_uploaded "$BC_BYTES"
 
         if [[ "$CACHE_LANE" == "rolling" ]]; then
-          emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior branch/default OCI cache, exports/promotes the updated cache, and records that commit build only. Fresh lane owns the separate cold-build plus warm-rerun parity check."
+          emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior branch/default OCI cache, exports/promotes the updated cache, and records that commit build only."
         else
-          emit hit_behavior_note "Fresh lane: the cold build starts from empty BoringCache tags and empty Docker layer cache, uses --no-cache + cache-to via the BoringCache registry proxy (mode=max), and records cold timing while populating the shared cache. Warm1 rebuilds the same pinned base tree after local BuildKit state is pruned, with cache-from only, no helper mounted inside Docker RUN steps, and no synthetic mutations."
+          emit hit_behavior_note "Fresh lane: one cold build starts from a run-scoped BoringCache Docker namespace, uses --no-cache while exporting cache for storage accounting, and records that build only. No warm rebuild runs inside this job."
         fi
       else
         emit cache_import_status ""
@@ -1021,9 +669,9 @@ runs:
         emit bytes_uploaded ""
 
         if [[ "$CACHE_LANE" == "rolling" ]]; then
-          emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior GitHub Actions cache, exports the updated cache, and records that commit build only. Fresh lane owns the separate cold-build plus warm-rerun parity check."
+          emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior GitHub Actions cache, exports the updated cache, and records that commit build only."
         else
-          emit hit_behavior_note "Fresh lane: the cold build runs the pinned base tree with --no-cache + cache-to type=gha (mode=max) and records cold timing while populating remote cache. Warm1 rebuilds the same pinned base tree after local BuildKit state is pruned, with cache-from only and no synthetic mutations."
+          emit hit_behavior_note "Fresh lane: one cold build runs the pinned base tree with --no-cache while exporting cache for storage accounting, and records that build only. No warm rebuild runs inside this job."
         fi
       fi
     shell: bash
