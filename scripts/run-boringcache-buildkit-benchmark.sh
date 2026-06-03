@@ -7,7 +7,7 @@ build_log="$(mktemp /tmp/boringcache-build.XXXXXX)"
 status_snapshot_path="$(mktemp /tmp/boringcache-status.XXXXXX)"
 max_attempts=1
 cache_export_pattern='expected sha256:.*got sha256:e3b0|error writing layer blob|400 Bad Request|broken pipe'
-mode="${1:-full}"
+mode="${1:-rolling}"
 backend="${BUILDKIT_BACKEND:-registry}"
 cache_import_ready="${BORINGCACHE_CACHE_IMPORT_READY:-true}"
 cache_requested_from_refs="${BORINGCACHE_CACHE_REQUESTED_FROM_REFS:-}"
@@ -244,7 +244,7 @@ capture_proxy_status() {
 }
 
 cache_from_requested() {
-  [[ "$mode" =~ ^(full|partial-warm)$ ]] && { [[ -n "$cache_requested_from_refs" ]] || [[ -n "${CACHE_FROM:-}" ]]; }
+  [[ "$mode" == "rolling" ]] && { [[ -n "$cache_requested_from_refs" ]] || [[ -n "${CACHE_FROM:-}" ]]; }
 }
 
 cache_from_usable() {
@@ -259,7 +259,7 @@ require_readable_cache_import() {
     echo "requested refs: ${cache_requested_from_refs}" >&2
     echo "used refs: ${cache_used_from_refs}" >&2
     echo "unreadable refs: ${cache_unreadable_from_refs}" >&2
-    if [[ "$mode" == "full" && "$allow_rolling_bootstrap" == "true" ]]; then
+    if [[ "$mode" == "rolling" && "$allow_rolling_bootstrap" == "true" ]]; then
       echo "Continuing without a readable import so this rolling run can publish the rolling-scope OCI alias." >&2
       return 0
     fi
@@ -272,7 +272,7 @@ require_readable_cache_import() {
     echo "requested refs: ${cache_requested_from_refs}" >&2
     echo "used refs: ${cache_used_from_refs}" >&2
     echo "unreadable refs: ${cache_unreadable_from_refs}" >&2
-    if [[ "$mode" == "full" && "$allow_rolling_bootstrap" == "true" ]]; then
+    if [[ "$mode" == "rolling" && "$allow_rolling_bootstrap" == "true" ]]; then
       echo "Continuing with the usable import subset so this rolling run can refresh the rolling-scope OCI alias." >&2
       return 0
     fi
@@ -361,9 +361,7 @@ write_build_diagnostics() {
 
 run_auto_build() {
   local phase_hint="cold"
-  if [[ "$mode" == "partial-warm" ]]; then
-    phase_hint="warm"
-  elif [[ "${CACHE_LANE:-fresh}" == "rolling" ]]; then
+  if [[ "$mode" == "rolling" ]]; then
     phase_hint="commit"
   fi
 
@@ -384,10 +382,6 @@ run_auto_build() {
     --native-tool-evidence-json "$native_tool_evidence_path"
     --fail-on-cache-error
   )
-  if [[ "$mode" == "partial-warm" ]]; then
-    boringcache_args+=(--read-only)
-  fi
-
   local boringcache_bin
   boringcache_bin="$(command -v boringcache)"
   local boringcache_cmd=("$boringcache_bin")
@@ -439,23 +433,18 @@ while true; do
       ;;
   esac
 
-  if [[ "$mode" == "full" ]]; then
+  if [[ "$mode" == "rolling" ]]; then
     if [[ "$backend" == "registry" ]]; then
       [[ -n "${CACHE_FROM:-}" ]] && cache_args+=(--cache-from "$CACHE_FROM")
       [[ -n "${CACHE_TO:-}" ]] && cache_args+=(--cache-to "$CACHE_TO")
     fi
-  elif [[ "$mode" =~ ^(fresh|seed-cache)$ ]]; then
+  elif [[ "$mode" == "fresh" ]]; then
     # --no-cache is required for type=registry export: without it, buildx
     # sees cached layers from the builder and skips pushing blobs to the
     # registry proxy, so the proxy never uploads to BoringCache backend.
     cache_args=(--no-cache)
     if [[ "$backend" == "registry" ]]; then
       [[ -n "${CACHE_TO:-}" ]] && cache_args+=(--cache-to "$CACHE_TO")
-    fi
-  elif [[ "$mode" == "partial-warm" ]]; then
-    # Read-only: no --cache-to.
-    if [[ "$backend" == "registry" ]]; then
-      [[ -n "${CACHE_FROM:-}" ]] && cache_args+=(--cache-from "$CACHE_FROM")
     fi
   else
     echo "Unknown build mode: $mode" >&2
@@ -497,16 +486,7 @@ while true; do
 
   if [[ "$status" -eq 0 ]]; then
     import_status="$(build_import_status)"
-    if [[ "$mode" == "partial-warm" && "$import_status" != "ok" ]]; then
-      capture_proxy_status
-      write_build_metrics
-      echo "Warm build completed without a usable registry cache import (status: ${import_status}); refusing invalid fresh sample." >&2
-      if [[ -n "${BENCHMARK_METRICS_OUTPUT:-}" && -s "$BENCHMARK_METRICS_OUTPUT" ]]; then
-        cat "$BENCHMARK_METRICS_OUTPUT" >&2
-      fi
-      exit 1
-    fi
-    if [[ "$mode" =~ ^(full|fresh|seed-cache)$ ]] && grep -Eq "$cache_export_pattern" "$build_log"; then
+    if [[ "$mode" =~ ^(rolling|fresh)$ ]] && grep -Eq "$cache_export_pattern" "$build_log"; then
       capture_proxy_status
       write_build_metrics
       write_build_diagnostics
@@ -517,7 +497,7 @@ while true; do
       exit 1
     fi
     capture_proxy_status
-    if [[ "$backend" == "registry" && "$mode" =~ ^(fresh|seed-cache|full)$ ]]; then
+    if [[ "$backend" == "registry" && "$mode" =~ ^(fresh|rolling)$ ]]; then
       # Stop proxy gracefully so it can flush pending uploads.
       echo "Flushing proxy cache to backend..."
       flush_action_proxy

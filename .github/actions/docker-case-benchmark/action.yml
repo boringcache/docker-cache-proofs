@@ -259,7 +259,7 @@ runs:
       exit 1
     shell: bash
   - name: "${{ inputs.cache_lane == 'rolling' && 'Run rolling commit build' || 'Run fresh cold build' }}"
-    id: cold_baseline_build
+    id: measured_build
     env:
       BORINGCACHE_RESTORE_TOKEN: "${{ env.BORINGCACHE_RESTORE_TOKEN }}"
       BORINGCACHE_SAVE_TOKEN: "${{ env.BORINGCACHE_SAVE_TOKEN }}"
@@ -308,7 +308,7 @@ runs:
         start="$(date +%s)"
         set +e
         benchmark_script="./scripts/run-boringcache-buildkit-benchmark.sh"
-        BENCHMARK_METRICS_OUTPUT="$metrics_file" BENCHMARK_DIAGNOSTICS_OUTPUT="$diagnostics_file" "$benchmark_script" ${{ inputs.cache_lane == 'rolling' && 'full' || 'fresh' }}
+        BENCHMARK_METRICS_OUTPUT="$metrics_file" BENCHMARK_DIAGNOSTICS_OUTPUT="$diagnostics_file" "$benchmark_script" ${{ inputs.cache_lane }}
         status="$?"
         set -e
         end="$(date +%s)"
@@ -527,28 +527,28 @@ runs:
     env:
       STRATEGY: "${{ inputs.strategy }}"
       CACHE_LANE: "${{ inputs.cache_lane }}"
-      SEED_COLD_SECONDS: "${{ steps.cold_baseline_build.outputs.seconds }}"
-      SEED_COLD_BUILD_SECONDS: "${{ steps.cold_baseline_build.outputs.build_seconds }}"
-      SEED_DOCKER_EXPORT_SECONDS: "${{ steps.cold_baseline_build.outputs.docker_cache_export_seconds }}"
-      SEED_DOCKER_IMPORT_SECONDS: "${{ steps.cold_baseline_build.outputs.docker_cache_import_seconds }}"
-      SEED_BUILDKIT_CACHED_STEPS: "${{ steps.cold_baseline_build.outputs.buildkit_cached_steps }}"
-      SEED_CACHE_IMPORT_STATUS: "${{ steps.cold_baseline_build.outputs.cache_import_status }}"
-      SEED_OCI_HYDRATION_POLICY: "${{ steps.cold_baseline_build.outputs.oci_hydration_policy }}"
-      SEED_OCI_BODY_LOCAL_HITS: "${{ steps.cold_baseline_build.outputs.oci_body_local_hits }}"
-      SEED_OCI_BODY_REMOTE_FETCHES: "${{ steps.cold_baseline_build.outputs.oci_body_remote_fetches }}"
-      SEED_OCI_BODY_LOCAL_BYTES: "${{ steps.cold_baseline_build.outputs.oci_body_local_bytes }}"
-      SEED_OCI_BODY_REMOTE_BYTES: "${{ steps.cold_baseline_build.outputs.oci_body_remote_bytes }}"
-      SEED_OCI_BODY_LOCAL_DURATION_MS: "${{ steps.cold_baseline_build.outputs.oci_body_local_duration_ms }}"
-      SEED_OCI_BODY_REMOTE_DURATION_MS: "${{ steps.cold_baseline_build.outputs.oci_body_remote_duration_ms }}"
-      SEED_STARTUP_OCI_BODY_INSERTED: "${{ steps.cold_baseline_build.outputs.startup_oci_body_inserted }}"
-      SEED_STARTUP_OCI_BODY_FAILURES: "${{ steps.cold_baseline_build.outputs.startup_oci_body_failures }}"
-      SEED_STARTUP_OCI_BODY_COLD_BLOBS: "${{ steps.cold_baseline_build.outputs.startup_oci_body_cold_blobs }}"
-      SEED_STARTUP_OCI_BODY_DURATION_MS: "${{ steps.cold_baseline_build.outputs.startup_oci_body_duration_ms }}"
-      SEED_OCI_NEW_BLOB_COUNT: "${{ steps.cold_baseline_build.outputs.oci_new_blob_count }}"
-      SEED_OCI_NEW_BLOB_BYTES: "${{ steps.cold_baseline_build.outputs.oci_new_blob_bytes }}"
-      SEED_OCI_UPLOAD_REQUESTED_BLOBS: "${{ steps.cold_baseline_build.outputs.oci_upload_requested_blobs }}"
-      SEED_OCI_UPLOAD_ALREADY_PRESENT: "${{ steps.cold_baseline_build.outputs.oci_upload_already_present }}"
-      SEED_OCI_UPLOAD_BATCH_SECONDS: "${{ steps.cold_baseline_build.outputs.oci_upload_batch_seconds }}"
+      MEASURED_SECONDS: "${{ steps.measured_build.outputs.seconds }}"
+      MEASURED_BUILD_SECONDS: "${{ steps.measured_build.outputs.build_seconds }}"
+      MEASURED_DOCKER_EXPORT_SECONDS: "${{ steps.measured_build.outputs.docker_cache_export_seconds }}"
+      MEASURED_DOCKER_IMPORT_SECONDS: "${{ steps.measured_build.outputs.docker_cache_import_seconds }}"
+      MEASURED_BUILDKIT_CACHED_STEPS: "${{ steps.measured_build.outputs.buildkit_cached_steps }}"
+      MEASURED_CACHE_IMPORT_STATUS: "${{ steps.measured_build.outputs.cache_import_status }}"
+      MEASURED_OCI_HYDRATION_POLICY: "${{ steps.measured_build.outputs.oci_hydration_policy }}"
+      MEASURED_OCI_BODY_LOCAL_HITS: "${{ steps.measured_build.outputs.oci_body_local_hits }}"
+      MEASURED_OCI_BODY_REMOTE_FETCHES: "${{ steps.measured_build.outputs.oci_body_remote_fetches }}"
+      MEASURED_OCI_BODY_LOCAL_BYTES: "${{ steps.measured_build.outputs.oci_body_local_bytes }}"
+      MEASURED_OCI_BODY_REMOTE_BYTES: "${{ steps.measured_build.outputs.oci_body_remote_bytes }}"
+      MEASURED_OCI_BODY_LOCAL_DURATION_MS: "${{ steps.measured_build.outputs.oci_body_local_duration_ms }}"
+      MEASURED_OCI_BODY_REMOTE_DURATION_MS: "${{ steps.measured_build.outputs.oci_body_remote_duration_ms }}"
+      MEASURED_STARTUP_OCI_BODY_INSERTED: "${{ steps.measured_build.outputs.startup_oci_body_inserted }}"
+      MEASURED_STARTUP_OCI_BODY_FAILURES: "${{ steps.measured_build.outputs.startup_oci_body_failures }}"
+      MEASURED_STARTUP_OCI_BODY_COLD_BLOBS: "${{ steps.measured_build.outputs.startup_oci_body_cold_blobs }}"
+      MEASURED_STARTUP_OCI_BODY_DURATION_MS: "${{ steps.measured_build.outputs.startup_oci_body_duration_ms }}"
+      MEASURED_OCI_NEW_BLOB_COUNT: "${{ steps.measured_build.outputs.oci_new_blob_count }}"
+      MEASURED_OCI_NEW_BLOB_BYTES: "${{ steps.measured_build.outputs.oci_new_blob_bytes }}"
+      MEASURED_OCI_UPLOAD_REQUESTED_BLOBS: "${{ steps.measured_build.outputs.oci_upload_requested_blobs }}"
+      MEASURED_OCI_UPLOAD_ALREADY_PRESENT: "${{ steps.measured_build.outputs.oci_upload_already_present }}"
+      MEASURED_OCI_UPLOAD_BATCH_SECONDS: "${{ steps.measured_build.outputs.oci_upload_batch_seconds }}"
       BC_BYTES: "${{ steps.bc_cache_size.outputs.bytes }}"
       BC_STORAGE_BREAKDOWN_PATH: "${{ steps.bc_cache_size.outputs.breakdown_path }}"
       AC_BYTES: "${{ steps.ac_cache_size.outputs.bytes }}"
@@ -570,16 +570,14 @@ runs:
         echo "${key}=${value}" >> "$GITHUB_OUTPUT"
       }
 
-      require cold_seconds "$SEED_COLD_SECONDS"
-      emit cold_seconds "$SEED_COLD_SECONDS"
-      emit cold_build_seconds "$SEED_COLD_BUILD_SECONDS"
-      emit docker_cache_export_seconds "$SEED_DOCKER_EXPORT_SECONDS"
+      require cold_seconds "$MEASURED_SECONDS"
+      emit cold_seconds "$MEASURED_SECONDS"
+      emit cold_build_seconds "$MEASURED_BUILD_SECONDS"
+      emit docker_cache_export_seconds "$MEASURED_DOCKER_EXPORT_SECONDS"
 
-      emit warm1_seconds ""
-      emit warm1_build_seconds ""
       if [[ "$CACHE_LANE" == "rolling" ]]; then
-        emit docker_cache_import_seconds "$SEED_DOCKER_IMPORT_SECONDS"
-        emit buildkit_cached_steps "$SEED_BUILDKIT_CACHED_STEPS"
+        emit docker_cache_import_seconds "$MEASURED_DOCKER_IMPORT_SECONDS"
+        emit buildkit_cached_steps "$MEASURED_BUILDKIT_CACHED_STEPS"
       else
         emit docker_cache_import_seconds ""
         emit buildkit_cached_steps ""
@@ -587,31 +585,31 @@ runs:
 
       if [[ "$STRATEGY" == "boringcache" ]]; then
         if [[ "$CACHE_LANE" == "rolling" ]]; then
-          cache_import_status="$SEED_CACHE_IMPORT_STATUS"
-          oci_hydration_policy="$SEED_OCI_HYDRATION_POLICY"
-          oci_body_local_hits="$SEED_OCI_BODY_LOCAL_HITS"
-          oci_body_remote_fetches="$SEED_OCI_BODY_REMOTE_FETCHES"
-          oci_body_local_bytes="$SEED_OCI_BODY_LOCAL_BYTES"
-          oci_body_remote_bytes="$SEED_OCI_BODY_REMOTE_BYTES"
-          oci_body_local_duration_ms="$SEED_OCI_BODY_LOCAL_DURATION_MS"
-          oci_body_remote_duration_ms="$SEED_OCI_BODY_REMOTE_DURATION_MS"
-          startup_oci_body_inserted="$SEED_STARTUP_OCI_BODY_INSERTED"
-          startup_oci_body_failures="$SEED_STARTUP_OCI_BODY_FAILURES"
-          startup_oci_body_cold_blobs="$SEED_STARTUP_OCI_BODY_COLD_BLOBS"
-          startup_oci_body_duration_ms="$SEED_STARTUP_OCI_BODY_DURATION_MS"
+          cache_import_status="$MEASURED_CACHE_IMPORT_STATUS"
+          oci_hydration_policy="$MEASURED_OCI_HYDRATION_POLICY"
+          oci_body_local_hits="$MEASURED_OCI_BODY_LOCAL_HITS"
+          oci_body_remote_fetches="$MEASURED_OCI_BODY_REMOTE_FETCHES"
+          oci_body_local_bytes="$MEASURED_OCI_BODY_LOCAL_BYTES"
+          oci_body_remote_bytes="$MEASURED_OCI_BODY_REMOTE_BYTES"
+          oci_body_local_duration_ms="$MEASURED_OCI_BODY_LOCAL_DURATION_MS"
+          oci_body_remote_duration_ms="$MEASURED_OCI_BODY_REMOTE_DURATION_MS"
+          startup_oci_body_inserted="$MEASURED_STARTUP_OCI_BODY_INSERTED"
+          startup_oci_body_failures="$MEASURED_STARTUP_OCI_BODY_FAILURES"
+          startup_oci_body_cold_blobs="$MEASURED_STARTUP_OCI_BODY_COLD_BLOBS"
+          startup_oci_body_duration_ms="$MEASURED_STARTUP_OCI_BODY_DURATION_MS"
         else
           cache_import_status=""
-          oci_hydration_policy="$SEED_OCI_HYDRATION_POLICY"
-          oci_body_local_hits="$SEED_OCI_BODY_LOCAL_HITS"
-          oci_body_remote_fetches="$SEED_OCI_BODY_REMOTE_FETCHES"
-          oci_body_local_bytes="$SEED_OCI_BODY_LOCAL_BYTES"
-          oci_body_remote_bytes="$SEED_OCI_BODY_REMOTE_BYTES"
-          oci_body_local_duration_ms="$SEED_OCI_BODY_LOCAL_DURATION_MS"
-          oci_body_remote_duration_ms="$SEED_OCI_BODY_REMOTE_DURATION_MS"
-          startup_oci_body_inserted="$SEED_STARTUP_OCI_BODY_INSERTED"
-          startup_oci_body_failures="$SEED_STARTUP_OCI_BODY_FAILURES"
-          startup_oci_body_cold_blobs="$SEED_STARTUP_OCI_BODY_COLD_BLOBS"
-          startup_oci_body_duration_ms="$SEED_STARTUP_OCI_BODY_DURATION_MS"
+          oci_hydration_policy="$MEASURED_OCI_HYDRATION_POLICY"
+          oci_body_local_hits="$MEASURED_OCI_BODY_LOCAL_HITS"
+          oci_body_remote_fetches="$MEASURED_OCI_BODY_REMOTE_FETCHES"
+          oci_body_local_bytes="$MEASURED_OCI_BODY_LOCAL_BYTES"
+          oci_body_remote_bytes="$MEASURED_OCI_BODY_REMOTE_BYTES"
+          oci_body_local_duration_ms="$MEASURED_OCI_BODY_LOCAL_DURATION_MS"
+          oci_body_remote_duration_ms="$MEASURED_OCI_BODY_REMOTE_DURATION_MS"
+          startup_oci_body_inserted="$MEASURED_STARTUP_OCI_BODY_INSERTED"
+          startup_oci_body_failures="$MEASURED_STARTUP_OCI_BODY_FAILURES"
+          startup_oci_body_cold_blobs="$MEASURED_STARTUP_OCI_BODY_COLD_BLOBS"
+          startup_oci_body_duration_ms="$MEASURED_STARTUP_OCI_BODY_DURATION_MS"
         fi
 
         emit cache_import_status "$cache_import_status"
@@ -626,11 +624,11 @@ runs:
         emit startup_oci_body_failures "$startup_oci_body_failures"
         emit startup_oci_body_cold_blobs "$startup_oci_body_cold_blobs"
         emit startup_oci_body_duration_ms "$startup_oci_body_duration_ms"
-        emit oci_new_blob_count "$SEED_OCI_NEW_BLOB_COUNT"
-        emit oci_new_blob_bytes "$SEED_OCI_NEW_BLOB_BYTES"
-        emit oci_upload_requested_blobs "$SEED_OCI_UPLOAD_REQUESTED_BLOBS"
-        emit oci_upload_already_present "$SEED_OCI_UPLOAD_ALREADY_PRESENT"
-        emit oci_upload_batch_seconds "$SEED_OCI_UPLOAD_BATCH_SECONDS"
+        emit oci_new_blob_count "$MEASURED_OCI_NEW_BLOB_COUNT"
+        emit oci_new_blob_bytes "$MEASURED_OCI_NEW_BLOB_BYTES"
+        emit oci_upload_requested_blobs "$MEASURED_OCI_UPLOAD_REQUESTED_BLOBS"
+        emit oci_upload_already_present "$MEASURED_OCI_UPLOAD_ALREADY_PRESENT"
+        emit oci_upload_batch_seconds "$MEASURED_OCI_UPLOAD_BATCH_SECONDS"
 
         require cache_storage_bytes "$BC_BYTES"
         emit cache_storage_bytes "$BC_BYTES"
@@ -641,7 +639,7 @@ runs:
         if [[ "$CACHE_LANE" == "rolling" ]]; then
           emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior branch/default OCI cache, exports/promotes the updated cache, and records that commit build only."
         else
-          emit hit_behavior_note "Fresh lane: one cold build starts from a run-scoped BoringCache Docker namespace, uses --no-cache while exporting cache for storage accounting, and records that build only. No warm rebuild runs inside this job."
+          emit hit_behavior_note "Fresh lane: one cold build starts from a run-scoped BoringCache Docker namespace, uses --no-cache while exporting cache for storage accounting, and records that build only. No second build runs inside this job."
         fi
       else
         emit cache_import_status ""
@@ -671,7 +669,7 @@ runs:
         if [[ "$CACHE_LANE" == "rolling" ]]; then
           emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior GitHub Actions cache, exports the updated cache, and records that commit build only."
         else
-          emit hit_behavior_note "Fresh lane: one cold build runs the pinned base tree with --no-cache while exporting cache for storage accounting, and records that build only. No warm rebuild runs inside this job."
+          emit hit_behavior_note "Fresh lane: one cold build runs the pinned base tree with --no-cache while exporting cache for storage accounting, and records that build only. No second build runs inside this job."
         fi
       fi
     shell: bash
@@ -699,8 +697,6 @@ runs:
         --project-ref "${{ steps.upstream_ref.outputs.sha }}" \
         --cold-seconds "${{ steps.normalize.outputs.cold_seconds }}" \
         --cold-build-seconds "${{ steps.normalize.outputs.cold_build_seconds }}" \
-        --warm1-seconds "${{ steps.normalize.outputs.warm1_seconds }}" \
-        --warm1-build-seconds "${{ steps.normalize.outputs.warm1_build_seconds }}" \
         --cache-import-status "${{ steps.normalize.outputs.cache_import_status }}" \
         --docker-cache-import-seconds "${{ steps.normalize.outputs.docker_cache_import_seconds }}" \
         --docker-cache-export-seconds "${{ steps.normalize.outputs.docker_cache_export_seconds }}" \
@@ -725,7 +721,6 @@ runs:
         --oci-upload-requested-blobs "${{ steps.normalize.outputs.oci_upload_requested_blobs }}" \
         --oci-upload-already-present "${{ steps.normalize.outputs.oci_upload_already_present }}" \
         --oci-upload-batch-seconds "${{ steps.normalize.outputs.oci_upload_batch_seconds }}" \
-        --reseed-new-blob-threshold "0" \
         --hit-behavior-note "${{ steps.normalize.outputs.hit_behavior_note }}" \
         "${cache_summary_args[@]}" \
         "${native_tool_args[@]}"

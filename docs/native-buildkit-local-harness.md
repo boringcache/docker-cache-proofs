@@ -119,7 +119,7 @@ env \
   BENCHMARK_HOST_TMPDIR=/Users/gaurav/boringcache/.tmp/phentrieve-native-local \
   BENCHMARK_METRICS_OUTPUT=/Users/gaurav/boringcache/.tmp/phentrieve-native-local/metrics.env \
   BENCHMARK_DIAGNOSTICS_OUTPUT=/Users/gaurav/boringcache/.tmp/phentrieve-native-local/diagnostics.txt \
-  ./scripts/run-boringcache-native-buildkit-benchmark.sh full
+  ./scripts/run-boringcache-native-buildkit-benchmark.sh rolling
 ```
 
 Use the same `CACHE_SCOPE` for the follow-up commit if testing rolling behavior:

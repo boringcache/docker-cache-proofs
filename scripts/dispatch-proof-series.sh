@@ -6,13 +6,13 @@ workflow="Docker Cache Proof"
 workflow_ref="main"
 case_id=""
 fresh_ref="main"
-rolling_seed_ref="main"
+rolling_bootstrap_ref="main"
 build_output="none"
 include_gha_reference="false"
 cli_ref=""
 run_fresh="true"
 run_rolling="true"
-include_rolling_seed="true"
+include_rolling_bootstrap="true"
 wait_for_runs="true"
 dry_run="false"
 rolling_refs=()
@@ -24,7 +24,7 @@ Usage: scripts/dispatch-proof-series.sh --case CASE_ID [options]
 Dispatch a Painful Builds Docker lane in the public fresh + ordered rolling shape.
 By default it runs:
   1. fresh on ref key "main"
-  2. rolling on ref key "main" to seed/update the rolling cache scope
+  2. rolling on ref key "main" to bootstrap/update the rolling cache scope
   3. rolling1, rolling2, rolling3... from cases/CASE_ID.json in numeric order
 
 Options:
@@ -33,7 +33,7 @@ Options:
   --workflow NAME_OR_FILE         Workflow name or file (default: Docker Cache Proof)
   --ref GIT_REF                   Workflow ref to dispatch (default: main)
   --fresh-ref REF_KEY             Ref key for fresh run (default: main)
-  --rolling-seed-ref REF_KEY      Ref key for rolling bootstrap (default: main)
+  --rolling-bootstrap-ref REF_KEY Ref key for rolling bootstrap (default: main)
   --rolling-ref REF_KEY           Add one rolling ref key; repeatable
   --rolling-refs A,B,C            Add comma-separated rolling ref keys
   --build-output MODE             none, load, or local-registry (default: none)
@@ -41,7 +41,7 @@ Options:
   --cli-ref REF                   Optional internal CLI ref
   --skip-fresh                    Do not dispatch the fresh lane
   --skip-rolling                  Do not dispatch rolling lanes
-  --skip-rolling-seed             Do not dispatch rolling seed/update on main
+  --skip-rolling-bootstrap        Do not dispatch rolling bootstrap/update on main
   --no-wait                       Dispatch and return without waiting
   --dry-run                       Print commands without dispatching
 USAGE
@@ -76,8 +76,8 @@ while [[ $# -gt 0 ]]; do
       fresh_ref="$2"
       shift 2
       ;;
-    --rolling-seed-ref)
-      rolling_seed_ref="$2"
+    --rolling-bootstrap-ref)
+      rolling_bootstrap_ref="$2"
       shift 2
       ;;
     --rolling-ref)
@@ -111,8 +111,8 @@ while [[ $# -gt 0 ]]; do
       run_rolling="false"
       shift
       ;;
-    --skip-rolling-seed)
-      include_rolling_seed="false"
+    --skip-rolling-bootstrap)
+      include_rolling_bootstrap="false"
       shift
       ;;
     --no-wait)
@@ -259,8 +259,8 @@ if [[ "$run_fresh" == "true" ]]; then
 fi
 
 if [[ "$run_rolling" == "true" ]]; then
-  if [[ "$include_rolling_seed" == "true" ]]; then
-    dispatch_one "$rolling_seed_ref" rolling
+  if [[ "$include_rolling_bootstrap" == "true" ]]; then
+    dispatch_one "$rolling_bootstrap_ref" rolling
   fi
   for ref_key in "${rolling_refs[@]}"; do
     dispatch_one "$ref_key" rolling

@@ -25,16 +25,16 @@ Note: these proof runs predate the single-phase lane split; current `fresh` runs
 
 | Proof | Run | Auto | OCI | Read |
 |---|---|---:|---:|---|
-| Historical fresh main | https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643 | 409s cold, 4s warm | 689s cold, 3s warm | Pre-split run; current fresh lane records the cold build only. |
+| Historical fresh main | https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643 | 409s cold, 4s historical rebuild | 689s cold, 3s historical rebuild | Pre-split run; current fresh lane records the cold build only. |
 | Rolling1 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26842722855 | 368s commit | 537s commit | Heavy rolling delta; pain is cache update/export after import. |
-| Rolling2 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399 | 8s commit | 7s commit | Small rolling delta; expected partially warm behavior. |
+| Rolling2 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399 | 8s commit | 7s commit | Small rolling delta; expected cache-hit behavior. |
 | Rolling3 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26843568848 | 9s commit | 8s commit | Confirms rolling2 was not a one-off. |
 
 ## Rolling1 Materialization Read
 
 User concern: rolling export materialization looked serial/slower than before.
 
-Answer: final export was not accidentally capped to one worker, but the warm rolling online path left most materialization until the final drain.
+Answer: final export was not accidentally capped to one worker, but the rolling online materialization path left most materialization until the final drain.
 
 Key Auto rolling1 log lines:
 
@@ -84,7 +84,7 @@ Compare with older local-registry rolling run `26834044546`:
 Current hypothesis:
 
 - The regression is not "final export parallelism broke".
-- The regression is "warm-active rolling did not discover or stage the large final graph early enough, so the parallel final exporter paid the whole materialization bill after the build".
+- The regression is "the warm-active materialization policy for rolling did not discover or stage the large final graph early enough, so the parallel final exporter paid the whole materialization bill after the build".
 - `output=none` may expose this more than `local-registry` because the BuildKit graph becomes useful to the online materializer later.
 
 ## Code Pointers
@@ -107,4 +107,4 @@ Important lines from the current checkout:
 2. Re-run Phentrieve rolling1 after changing warm-active scheduling or materialization discovery to confirm the 64s final export drain shrinks.
 3. Consider a warm-active policy tweak: start at 2 materializers on 4c/16GB only when final graph/backlog evidence is large, or add a pre-final materialization drain with growth before final save.
 4. Compare `output=none` and `local-registry` on the same rolling commit to prove whether output mode changes when metadata becomes materializable.
-5. Keep outreach messaging honest: Phentrieve is strong proof for same-source hot rebuilds, while rolling1 is still a product-readiness issue around heavy cache update/export.
+5. Keep outreach messaging honest: Phentrieve is strong proof for same-source rebuild speed, while rolling1 is still a product-readiness issue around heavy cache update/export.

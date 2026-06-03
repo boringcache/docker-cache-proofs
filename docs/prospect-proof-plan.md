@@ -37,11 +37,11 @@ Representative official runs:
 - Heavier sample: [`26388675097`](https://github.com/berntpopp/phentrieve/actions/runs/26388675097/job/77672942721), API job 19m21s, API build/push 12m08s.
 
 Current BoringCache proof readout:
-Note: these proof runs predate the single-phase lane split; current `fresh` runs record one cold build only, and warm rebuild evidence belongs outside the fresh lane.
+Note: these proof runs predate the single-phase lane split; current `fresh` runs record one cold build only, and same-source rebuild evidence belongs outside the fresh lane.
 
-- Fresh `main` run [`26833413643`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643): Auto cold 409s, Auto warm1 4s; OCI cold 689s, OCI warm1 3s. The fresh workflow wall time is slow because it includes intentional cold cache population, not because the same-source warm path is slow.
+- Fresh `main` run [`26833413643`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643): Auto cold 409s with a historical same-source rebuild at 4s; OCI cold 689s with a historical same-source rebuild at 3s. The fresh workflow wall time is slow because it includes intentional cold cache population, not because the same-source rebuild path is slow.
 - Rolling1 run [`26842722855`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26842722855): Auto commit build 368s with 100% read hit rate, 0.3s cache restore, 184s cache save/export, and about 7.0GB of new OCI blobs. OCI commit build 537s with 67.3% hit rate, 0.1s cache restore, 380.2s cache save/export, and about 6.5GB of new OCI blobs. This is the current continuous-commit pain: large cache update/export after a cache import, not hot same-source rebuild time.
-- Rolling2 run [`26843436399`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399): Auto commit build 8s with 100% read hit rate and 0 new OCI blobs. OCI commit build 7s with 97.6% hit rate, 0.1s cache restore, 1.0s cache save/export, and one 16KB new OCI blob. This is the partially warm/small-delta case we needed beside the heavier rolling1 run.
+- Rolling2 run [`26843436399`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399): Auto commit build 8s with 100% read hit rate and 0 new OCI blobs. OCI commit build 7s with 97.6% hit rate, 0.1s cache restore, 1.0s cache save/export, and one 16KB new OCI blob. This is the small-delta rolling case we needed beside the heavier rolling1 run.
 - Rolling3 run [`26843568848`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26843568848): Auto commit build 9s with 100% read hit rate and 0 new OCI blobs. OCI commit build 8s with 97.6% hit rate, 0.1s cache restore, 1.1s cache save/export, and one 16KB new OCI blob.
 
 Phentrieve proof table:
@@ -49,9 +49,9 @@ Phentrieve proof table:
 | Proof | Link | Auto result | OCI result | Readiness read |
 |---|---|---:|---:|---|
 | Official heavy API run | [`26388675097`](https://github.com/berntpopp/phentrieve/actions/runs/26388675097/job/77672942721) | n/a | Build/push step 12m08s | Strong public pain: API Docker build hit 30-minute timeout before registry-cache fix. |
-| Historical fresh `main` | [`26833413643`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643) | 409s cold, 4s warm1 | 689s cold, 3s warm1 | Pre-split run; current fresh lane records the cold build only. |
+| Historical fresh `main` | [`26833413643`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643) | 409s cold, 4s historical rebuild | 689s cold, 3s historical rebuild | Pre-split run; current fresh lane records the cold build only. |
 | Rolling1 | [`26842722855`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26842722855) | 368s commit build | 537s commit build | Heavy rolling delta; product story is cache-update/export tax. |
-| Rolling2 | [`26843436399`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399) | 8s commit build | 7s commit build | Small rolling delta; shows expected partially warm behavior. |
+| Rolling2 | [`26843436399`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26843436399) | 8s commit build | 7s commit build | Small rolling delta; shows expected cache-hit behavior. |
 | Rolling3 | [`26843568848`](https://github.com/boringcache/docker-cache-proofs/actions/runs/26843568848) | 9s commit build | 8s commit build | Small rolling delta; confirms rolling2 was not a one-off. |
 
 ## Dispatch Shape
@@ -62,7 +62,7 @@ Use the dispatcher for a complete ordered proof series:
 scripts/dispatch-proof-series.sh --case phentrieve-api --build-output none
 ```
 
-For a single rolling commit after the rolling scope has already been seeded:
+For a single rolling commit after the rolling scope has already been bootstrapped:
 
 ```bash
 gh workflow run "Docker Cache Proof" \

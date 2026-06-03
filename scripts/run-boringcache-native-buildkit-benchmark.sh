@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mode="${1:-full}"
+mode="${1:-rolling}"
 benchmark_id="${BENCHMARK_ID:-docker}"
 workspace="${BENCHMARK_WORKSPACE:-${GITHUB_REPOSITORY:-boringcache/benchmarks}}"
 cache_scope="${CACHE_SCOPE:?Set CACHE_SCOPE}"
@@ -30,7 +30,7 @@ buildkit_name="bc-native-${run_slug}-bk"
 cli_name="bc-native-${run_slug}-cli"
 
 case "$mode" in
-  full | seed-cache | partial-warm)
+  fresh | rolling)
     ;;
   *)
     echo "Unknown build mode: $mode" >&2
@@ -154,15 +154,13 @@ buildctl_command=(
   --progress=plain
 )
 
-if [[ "$mode" == "seed-cache" ]]; then
+if [[ "$mode" == "fresh" ]]; then
   buildctl_command+=(--no-cache)
 fi
 buildctl_command+=("${dockerfile_opts[@]}")
 
 phase_hint="cold"
-if [[ "$mode" == "partial-warm" ]]; then
-  phase_hint="warm"
-elif [[ "${CACHE_LANE:-fresh}" == "rolling" ]]; then
+if [[ "$mode" == "rolling" ]]; then
   phase_hint="commit"
 fi
 
@@ -185,10 +183,6 @@ boringcache_args=(
   --metadata-hint "backend=native"
   --fail-on-cache-error
 )
-
-if [[ "$mode" == "partial-warm" ]]; then
-  boringcache_args+=(--read-only)
-fi
 
 timed_command=(
   bash -lc
@@ -414,12 +408,4 @@ if [[ "$status" -ne 0 ]]; then
   echo "Native BuildKit benchmark failed with status ${status}" >&2
   tail -n 200 "$build_log" >&2 || true
   exit "$status"
-fi
-
-if [[ "$mode" == "partial-warm" && "$import_status" != "ok" ]]; then
-  echo "Warm native BuildKit build completed without a usable cache import (status: ${import_status}); refusing invalid fresh sample." >&2
-  if [[ -n "${BENCHMARK_METRICS_OUTPUT:-}" && -s "${BENCHMARK_METRICS_OUTPUT}" ]]; then
-    cat "${BENCHMARK_METRICS_OUTPUT}" >&2
-  fi
-  exit 1
 fi

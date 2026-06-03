@@ -29,7 +29,7 @@ Use the Docker lane in the `Docker Cache Proof` workflow with:
 - `include_gha_reference=false` unless we need an apples-to-apples reference in this repo;
 - `build_output=none`, `load`, or `local-registry` depending on the UX surface being measured.
 
-Fresh lanes may export cache for storage accounting, but they do not run a follow-up warm rebuild. Rolling lanes own prior-cache import/update evidence.
+Fresh lanes may export cache for storage accounting, but they do not run a second build. Rolling lanes own prior-cache import/update evidence.
 
 For ordered fresh + rolling runs, use:
 
