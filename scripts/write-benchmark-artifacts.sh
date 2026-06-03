@@ -127,6 +127,7 @@ oci_upload_batch_seconds=""
 reseed_new_blob_threshold="${BENCHMARK_RESEED_NEW_BLOB_THRESHOLD:-0}"
 tiny_metadata_churn_max_blobs="${BENCHMARK_TINY_METADATA_CHURN_MAX_BLOBS:-1}"
 tiny_metadata_churn_max_bytes="${BENCHMARK_TINY_METADATA_CHURN_MAX_BYTES:-65536}"
+artifact_surface="${BENCHMARK_ARTIFACT_SURFACE:-benchmark}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -461,6 +462,10 @@ while [[ $# -gt 0 ]]; do
       tiny_metadata_churn_max_bytes="$2"
       shift 2
       ;;
+    --artifact-surface)
+      artifact_surface="$2"
+      shift 2
+      ;;
     --output-dir)
       output_dir="$2"
       shift 2
@@ -485,6 +490,20 @@ case "$lane" in
     exit 1
     ;;
 esac
+
+case "$artifact_surface" in
+  benchmark|single-phase-proof)
+    ;;
+  *)
+    echo "Unsupported artifact surface: $artifact_surface" >&2
+    exit 1
+    ;;
+esac
+
+single_phase_proof=false
+if [[ "$artifact_surface" == "single-phase-proof" ]]; then
+  single_phase_proof=true
+fi
 
 if [[ -z "$cache_storage_source" ]]; then
   cache_storage_source="unspecified"
@@ -1520,10 +1539,10 @@ comparison_header_label() {
 
 strategy_label() {
   case "$1" in
-    actions-cache) echo "GitHub Actions Cache" ;;
-    boringcache) echo "BoringCache" ;;
-    depot-cache) echo "Depot Cache" ;;
-    buildbuddy-cache) echo "BuildBuddy Cache" ;;
+    actions-cache) echo "GHA" ;;
+    boringcache) echo "BC" ;;
+    depot-cache) echo "Depot" ;;
+    buildbuddy-cache) echo "BuildBuddy" ;;
     *) echo "$1" ;;
   esac
 }
@@ -1534,8 +1553,137 @@ md_path="$output_dir/${benchmark}-${strategy}-${lane}.md"
 generated_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 lane_label_value="$(lane_label "$lane")"
 first_build_label_value="$(first_build_label "$lane")"
+first_build_detail_label_value="${first_build_label_value% build}"
 comparison_header_label_value="$(comparison_header_label "$lane")"
 strategy_label_value="$(strategy_label "$strategy")"
+
+if [[ "$single_phase_proof" == "true" ]]; then
+  runs_payload="$(jq -n -c \
+    --arg lane "$lane" \
+    --arg label "$first_build_label_value" \
+    --argjson measured_seconds "$(json_num_or_null "$cold_seconds")" \
+    --argjson measured_build_seconds "$(json_num_or_null "$cold_build_seconds")" \
+    --argjson measured_setup_seconds "$(json_num_or_null "$cold_setup_seconds")" \
+    '{
+      "measured_label": $label,
+      "measured_seconds": $measured_seconds,
+      "measured_build_seconds": $measured_build_seconds,
+      "measured_restore_or_setup_seconds": $measured_setup_seconds,
+      "cold_build_seconds": (if $lane == "fresh" then $measured_seconds else null end),
+      "commit_build_seconds": (if $lane == "rolling" then $measured_seconds else null end)
+    } | with_entries(select(.value != null))')"
+  speed_payload="null"
+  classification_payload="$(jq -n -c \
+    --arg lane "$lane" \
+    --arg reporting_mode "$reporting_mode" \
+    --arg reporting_reason "$reporting_reason" \
+    --arg reporting_note "$reporting_note" \
+    --arg validity_reason "$validity_reason" \
+    --arg cache_import_status "$cache_import_status" \
+    --arg rolling_update_kind "$rolling_reseed_kind" \
+    --arg rolling_update_reason "$reseed_reason" \
+    --argjson sample_valid "$sample_valid" \
+    --argjson steady_state_candidate "$steady_state_candidate" \
+    --argjson tiny_metadata_churn "$tiny_metadata_churn" \
+    --argjson tiny_metadata_churn_max_blobs "$tiny_metadata_churn_max_blobs" \
+    --argjson tiny_metadata_churn_max_bytes "$tiny_metadata_churn_max_bytes" \
+    'def blank_to_null: if . == "" then null else . end;
+    {
+      "sample_valid": $sample_valid,
+      "reporting_mode": ($reporting_mode | blank_to_null),
+      "reporting_reason": ($reporting_reason | blank_to_null),
+      "reporting_note": ($reporting_note | blank_to_null),
+      "validity_reason": ($validity_reason | blank_to_null),
+      "cache_import_status": ($cache_import_status | blank_to_null)
+    }
+    + (
+      if $lane == "rolling" then
+        {
+          "rolling_update": {
+            "steady_state_candidate": $steady_state_candidate,
+            "kind": ($rolling_update_kind | if . == "none" then "continuous_commit_update" else blank_to_null end),
+            "tiny_metadata_churn": $tiny_metadata_churn,
+            "tiny_metadata_churn_max_blobs": $tiny_metadata_churn_max_blobs,
+            "tiny_metadata_churn_max_bytes": $tiny_metadata_churn_max_bytes,
+            "reason": ($rolling_update_reason | blank_to_null)
+          }
+        }
+      else
+        {}
+      end
+    )')"
+  hit_behavior_payload="$(jq -n -c \
+    --arg note "$hit_behavior_note" \
+    '{
+      "note": (if $note == "" then null else $note end)
+    }')"
+else
+  runs_payload="$(jq -n -c \
+    --argjson cold_seconds "$(json_num_or_null "$cold_seconds")" \
+    --argjson cold_build_seconds "$(json_num_or_null "$cold_build_seconds")" \
+    --argjson cold_setup_seconds "$(json_num_or_null "$cold_setup_seconds")" \
+    --argjson warm1_seconds "$(json_num_or_null "$warm1_seconds")" \
+    --argjson warm1_build_seconds "$(json_num_or_null "$warm1_build_seconds")" \
+    --argjson warm1_setup_seconds "$(json_num_or_null "$warm1_setup_seconds")" \
+    --argjson rolling_first_build_seconds "$(json_num_or_null "$rolling_first_build_seconds")" \
+    --argjson rolling_warm_seconds "$(json_num_or_null "$rolling_warm_seconds")" \
+    '{
+      "cold_seconds": $cold_seconds,
+      "cold_build_seconds": $cold_build_seconds,
+      "cold_restore_or_setup_seconds": $cold_setup_seconds,
+      "warm1_seconds": $warm1_seconds,
+      "warm1_build_seconds": $warm1_build_seconds,
+      "warm1_restore_or_setup_seconds": $warm1_setup_seconds,
+      "rolling_first_build_seconds": $rolling_first_build_seconds,
+      "rolling_warm_seconds": $rolling_warm_seconds
+    }')"
+  speed_payload="$(jq -n -c \
+    --argjson warm_average_seconds "$warm_avg" \
+    --argjson warm_vs_cold_improvement_pct "$warm_improvement_pct" \
+    '{
+      "warm_average_seconds": $warm_average_seconds,
+      "warm_vs_cold_improvement_pct": $warm_vs_cold_improvement_pct
+    }')"
+  classification_payload="$(jq -n -c \
+    --arg reporting_mode "$reporting_mode" \
+    --arg reporting_reason "$reporting_reason" \
+    --arg reporting_note "$reporting_note" \
+    --arg validity_reason "$validity_reason" \
+    --arg cache_import_status "$cache_import_status" \
+    --arg rolling_reseed_kind "$rolling_reseed_kind" \
+    --arg reseed_reason "$reseed_reason" \
+    --argjson sample_valid "$sample_valid" \
+    --argjson rolling_reseed "$rolling_reseed" \
+    --argjson steady_state_candidate "$steady_state_candidate" \
+    --argjson tiny_metadata_churn "$tiny_metadata_churn" \
+    --argjson tiny_metadata_churn_max_blobs "$tiny_metadata_churn_max_blobs" \
+    --argjson tiny_metadata_churn_max_bytes "$tiny_metadata_churn_max_bytes" \
+    --argjson reseed_new_blob_threshold "$reseed_new_blob_threshold" \
+    'def blank_to_null: if . == "" then null else . end;
+    {
+      "sample_valid": $sample_valid,
+      "reporting_mode": ($reporting_mode | blank_to_null),
+      "reporting_reason": ($reporting_reason | blank_to_null),
+      "reporting_note": ($reporting_note | blank_to_null),
+      "validity_reason": ($validity_reason | blank_to_null),
+      "cache_import_status": ($cache_import_status | blank_to_null),
+      "rolling_reseed": $rolling_reseed,
+      "steady_state_candidate": $steady_state_candidate,
+      "rolling_reseed_kind": ($rolling_reseed_kind | blank_to_null),
+      "tiny_metadata_churn": $tiny_metadata_churn,
+      "tiny_metadata_churn_max_blobs": $tiny_metadata_churn_max_blobs,
+      "tiny_metadata_churn_max_bytes": $tiny_metadata_churn_max_bytes,
+      "reseed_new_blob_threshold": $reseed_new_blob_threshold,
+      "reseed_reason": ($reseed_reason | blank_to_null)
+    }')"
+  hit_behavior_payload="$(jq -n -c \
+    --arg note "$hit_behavior_note" \
+    --argjson warm_rerun_succeeded "$warm_rerun_succeeded" \
+    '{
+      "warm_rerun_succeeded": $warm_rerun_succeeded,
+      "note": (if $note == "" then null else $note end)
+    }')"
+fi
 
 cat > "$json_path" <<JSON
 {
@@ -1576,20 +1724,8 @@ cat > "$json_path" <<JSON
   "launch_proof_paths": $launch_proof_paths_payload,
   "slow_reason": $slow_reason_payload,
   "generated_at": "$generated_at",
-  "runs": {
-    "cold_seconds": $(json_num_or_null "$cold_seconds"),
-    "cold_build_seconds": $(json_num_or_null "$cold_build_seconds"),
-    "cold_restore_or_setup_seconds": $(json_num_or_null "$cold_setup_seconds"),
-    "warm1_seconds": $(json_num_or_null "$warm1_seconds"),
-    "warm1_build_seconds": $(json_num_or_null "$warm1_build_seconds"),
-    "warm1_restore_or_setup_seconds": $(json_num_or_null "$warm1_setup_seconds"),
-    "rolling_first_build_seconds": $(json_num_or_null "$rolling_first_build_seconds"),
-    "rolling_warm_seconds": $(json_num_or_null "$rolling_warm_seconds")
-  },
-  "speed": {
-    "warm_average_seconds": $warm_avg,
-    "warm_vs_cold_improvement_pct": $warm_improvement_pct
-  },
+  "runs": $runs_payload,
+  "speed": $speed_payload,
   "cache": {
     "storage_bytes": $cache_storage_bytes,
     "storage_mib": $cache_storage_mib,
@@ -1632,31 +1768,13 @@ cat > "$json_path" <<JSON
     "upload_already_present": $(json_num_or_null "$oci_upload_already_present"),
     "upload_batch_seconds": $(json_num_or_null "$oci_upload_batch_seconds")
   },
-  "classification": {
-    "sample_valid": $sample_valid,
-    "reporting_mode": $(json_string_or_null "$reporting_mode"),
-    "reporting_reason": $(json_string_or_null "$reporting_reason"),
-    "reporting_note": $(json_string_or_null "$reporting_note"),
-    "validity_reason": $(json_string_or_null "$validity_reason"),
-    "cache_import_status": $(json_string_or_null "$cache_import_status"),
-    "rolling_reseed": $rolling_reseed,
-    "steady_state_candidate": $steady_state_candidate,
-    "rolling_reseed_kind": $(json_string_or_null "$rolling_reseed_kind"),
-    "tiny_metadata_churn": $tiny_metadata_churn,
-    "tiny_metadata_churn_max_blobs": $tiny_metadata_churn_max_blobs,
-    "tiny_metadata_churn_max_bytes": $tiny_metadata_churn_max_bytes,
-    "reseed_new_blob_threshold": $reseed_new_blob_threshold,
-    "reseed_reason": $(json_string_or_null "$reseed_reason")
-  },
+  "classification": $classification_payload,
   "action_timings": $action_timings_payload,
   "transfer": {
     "bytes_uploaded": $(json_num_or_null "$bytes_uploaded"),
     "bytes_downloaded": $(json_num_or_null "$bytes_downloaded")
   },
-  "hit_behavior": {
-    "warm_rerun_succeeded": $warm_rerun_succeeded,
-    "note": $(json_string_or_null "$hit_behavior_note")
-  },
+  "hit_behavior": $hit_behavior_payload,
   "tool_outcomes": $tool_outcomes_payload
 }
 JSON
@@ -1695,10 +1813,10 @@ JSON
     echo "| Warm avg | ${warm_avg}s (${warm_improvement_pct}% faster) |"
   fi
   if [[ -n "$cold_build_seconds" ]]; then
-    echo "| Cold build-only | ${cold_build_seconds}s |"
+    echo "| ${first_build_detail_label_value} build-only | ${cold_build_seconds}s |"
   fi
   if [[ -n "$cold_setup_seconds" ]]; then
-    echo "| Cold restore/setup | ${cold_setup_seconds}s |"
+    echo "| ${first_build_detail_label_value} restore/setup | ${cold_setup_seconds}s |"
   fi
   if [[ -n "$warm1_build_seconds" ]]; then
     echo "| Warm build-only | ${warm1_build_seconds}s |"

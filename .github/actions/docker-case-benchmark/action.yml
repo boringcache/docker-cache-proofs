@@ -722,6 +722,7 @@ runs:
         --oci-upload-already-present "${{ steps.normalize.outputs.oci_upload_already_present }}" \
         --oci-upload-batch-seconds "${{ steps.normalize.outputs.oci_upload_batch_seconds }}" \
         --hit-behavior-note "${{ steps.normalize.outputs.hit_behavior_note }}" \
+        --artifact-surface "single-phase-proof" \
         "${cache_summary_args[@]}" \
         "${native_tool_args[@]}"
     shell: bash
