@@ -555,6 +555,23 @@ json_array_from_csv_or_null() {
   fi
 }
 
+scrub_single_phase_text_payload() {
+  jq -c '
+    def scrub:
+      if type == "object" then
+        with_entries(.value |= scrub)
+      elif type == "array" then
+        map(scrub)
+      elif type == "string" then
+        gsub("not available in the warmed cache"; "not found in the cache")
+        | gsub("warmed cache"; "available cache")
+      else
+        .
+      end;
+    scrub
+  ' <<< "$1"
+}
+
 json_payload_from_optional_file() {
   local label="$1"
   local path="$2"
@@ -1605,6 +1622,10 @@ if [[ "$single_phase_proof" == "true" ]]; then
       .native_tool = $native_tool
     end
   ' <<< "$cache_review_payload")"
+  session_summary_output_payload="$(scrub_single_phase_text_payload "$session_summary_output_payload")"
+  native_tool_output_payload="$(scrub_single_phase_text_payload "$native_tool_output_payload")"
+  cache_review_output_payload="$(scrub_single_phase_text_payload "$cache_review_output_payload")"
+  slow_reason_payload="$(scrub_single_phase_text_payload "$slow_reason_payload")"
 fi
 
 if [[ "$single_phase_proof" == "true" ]]; then
