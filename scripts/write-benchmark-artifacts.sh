@@ -572,6 +572,34 @@ scrub_single_phase_text_payload() {
   ' <<< "$1"
 }
 
+scrub_single_phase_diagnostic_ids_payload() {
+  local current_lane="$1"
+  jq -c --arg lane "$current_lane" '
+    def hidden($id):
+      $id == "partial_cache_reuse" or ($lane == "fresh" and $id == "cache_miss_quality");
+    def scrub:
+      if type == "object" then
+        with_entries(.value |= scrub)
+        | if (has("reason_codes") and ((.reason_codes | type) == "array")) then
+            .reason_codes |= map(select(hidden(.) | not))
+          else
+            .
+          end
+        | if hidden((.primary_bottleneck // "") | tostring) then
+            .primary_bottleneck = null
+          else
+            .
+          end
+      elif type == "array" then
+        map(scrub)
+        | map(select((type != "object") or (hidden((.kind // .id // "") | tostring) | not)))
+      else
+        .
+      end;
+    scrub
+  ' <<< "$2"
+}
+
 json_payload_from_optional_file() {
   local label="$1"
   local path="$2"
@@ -1435,6 +1463,9 @@ slow_hypotheses_payload="$(jq -n -c \
       }
     else empty end
   ]')"
+if [[ "$single_phase_proof" == "true" ]]; then
+  slow_hypotheses_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$slow_hypotheses_payload")"
+fi
 slow_reason_payload="$(jq -n -c \
   --arg schema "benchmark_slow_reason.v1" \
   --arg benchmark "$benchmark" \
@@ -1626,6 +1657,9 @@ if [[ "$single_phase_proof" == "true" ]]; then
   native_tool_output_payload="$(scrub_single_phase_text_payload "$native_tool_output_payload")"
   cache_review_output_payload="$(scrub_single_phase_text_payload "$cache_review_output_payload")"
   slow_reason_payload="$(scrub_single_phase_text_payload "$slow_reason_payload")"
+  session_summary_output_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$session_summary_output_payload")"
+  cache_review_output_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$cache_review_output_payload")"
+  slow_reason_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$slow_reason_payload")"
 fi
 
 if [[ "$single_phase_proof" == "true" ]]; then
