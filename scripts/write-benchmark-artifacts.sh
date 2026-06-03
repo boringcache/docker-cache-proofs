@@ -1658,6 +1658,7 @@ if [[ "$single_phase_proof" == "true" ]]; then
   cache_review_output_payload="$(scrub_single_phase_text_payload "$cache_review_output_payload")"
   slow_reason_payload="$(scrub_single_phase_text_payload "$slow_reason_payload")"
   session_summary_output_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$session_summary_output_payload")"
+  native_tool_output_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$native_tool_output_payload")"
   cache_review_output_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$cache_review_output_payload")"
   slow_reason_payload="$(scrub_single_phase_diagnostic_ids_payload "$lane" "$slow_reason_payload")"
 fi
