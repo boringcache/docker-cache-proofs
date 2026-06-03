@@ -3,8 +3,8 @@ set -euo pipefail
 
 proxy_port="${BORINGCACHE_PROXY_PORT:-5000}"
 proxy_log="${BORINGCACHE_PROXY_LOG_PATH:-/tmp/boringcache-proxy-${proxy_port}.log}"
-build_log="$(mktemp /tmp/boringcache-build.XXXXXX.log)"
-status_snapshot_path="$(mktemp /tmp/boringcache-status.XXXXXX.json)"
+build_log="$(mktemp /tmp/boringcache-build.XXXXXX)"
+status_snapshot_path="$(mktemp /tmp/boringcache-status.XXXXXX)"
 max_attempts=1
 cache_export_pattern='expected sha256:.*got sha256:e3b0|error writing layer blob|400 Bad Request|broken pipe'
 mode="${1:-full}"
@@ -320,7 +320,7 @@ write_build_diagnostics() {
     echo "blob_prefetch_concurrency_override=${BORINGCACHE_BLOB_PREFETCH_CONCURRENCY:-}"
     echo "oci_stream_through_min_bytes=${BORINGCACHE_OCI_STREAM_THROUGH_MIN_BYTES:-}"
     printf 'cache_args='
-    printf '%q ' "${cache_args[@]}"
+    printf '%q ' ${cache_args[@]+"${cache_args[@]}"}
     printf '\n'
     echo "import_status=$(build_import_status)"
     echo "cached_steps=${cached_steps}"
@@ -405,9 +405,9 @@ run_auto_build() {
     --file "$DOCKERFILE_PATH" \
     --tag "$IMAGE_TAG" \
     --progress=plain \
-    "${extra_args[@]}" \
-    "${cache_args[@]}" \
-    "${output_args[@]}" \
+    ${extra_args[@]+"${extra_args[@]}"} \
+    ${cache_args[@]+"${cache_args[@]}"} \
+    ${output_args[@]+"${output_args[@]}"} \
     "$BENCHMARK_DOCKER_CONTEXT" 2>&1 | tee "$build_log"
   status=${PIPESTATUS[0]}
   set -e

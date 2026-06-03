@@ -1,0 +1,75 @@
+{
+  "sources": [
+    {
+      "id": "phentrieve-official-docker",
+      "bucket": "Docker proof",
+      "adapter": "Docker/BuildKit",
+      "label": "Phentrieve official Docker publish",
+      "lead": "berntpopp",
+      "repo": "berntpopp/phentrieve",
+      "workflow": "Build and Push Docker Images to GHCR",
+      "limit": 12,
+      "pain_url": "https://github.com/berntpopp/phentrieve/issues/94",
+      "workflow_pain_url": "https://github.com/berntpopp/phentrieve/blob/main/.github/workflows/docker-publish.yml#L113-L117",
+      "proof_url": "https://github.com/berntpopp/phentrieve/actions/runs/26388675097/job/77672942721",
+      "source_url": "https://github.com/berntpopp/phentrieve/actions/runs/26388675097/job/77672942721",
+      "notes": "API job uses docker/build-push-action with GHCR registry cache mode=max for PyTorch-sized image builds."
+    },
+    {
+      "id": "docker-cache-proofs",
+      "bucket": "Docker proof",
+      "adapter": "BoringCache proof",
+      "label": "Painful Builds Docker lane",
+      "lead": "BoringCache",
+      "repo": "boringcache/docker-cache-proofs",
+      "workflow": "Docker Cache Proof",
+      "limit": 20,
+      "pain_url": "https://github.com/berntpopp/phentrieve/issues/94",
+      "proof_url": "https://github.com/boringcache/docker-cache-proofs/actions/runs/26833413643",
+      "source_url": "https://github.com/boringcache/docker-cache-proofs/actions/workflows/docker-cache-proofs.yml",
+      "notes": "BoringCache OCI/auto proof lanes for Phentrieve, Wormhole, and Cardstack."
+    },
+    {
+      "id": "aranya-unit-tests",
+      "bucket": "sccache lead",
+      "adapter": "Rust/sccache",
+      "label": "Aranya unit tests",
+      "lead": "nikki-aranya, gknopf-aranya, jdygert-spok",
+      "repo": "aranya-project/aranya",
+      "workflow": "Unit tests",
+      "limit": 10,
+      "pain_url": "https://github.com/aranya-project/aranya/issues/135",
+      "proof_url": "https://github.com/aranya-project/aranya/actions/workflows/unit-test.yml",
+      "source_url": "https://github.com/aranya-project/aranya/issues/135",
+      "notes": "Public issue asks for faster compile/test CI; comments discuss GHA sccache limitations and S3-backed sccache."
+    },
+    {
+      "id": "josh-rust",
+      "bucket": "sccache lead",
+      "adapter": "Rust/sccache",
+      "label": "Josh Rust CI",
+      "lead": "christian-schilling",
+      "repo": "josh-project/josh",
+      "workflow": "rust",
+      "limit": 10,
+      "pain_url": "https://github.com/josh-project/josh/pull/2025",
+      "proof_url": "https://github.com/josh-project/josh/actions/workflows/rust.yml",
+      "source_url": "https://github.com/josh-project/josh/pull/2025",
+      "notes": "Open PR adds R2 sccache via sidecar proxy because build containers run without direct internet."
+    },
+    {
+      "id": "tiny-congress-ci",
+      "bucket": "sccache lead",
+      "adapter": "Rust/sccache",
+      "label": "Tiny Congress CI",
+      "lead": "icook",
+      "repo": "icook/tiny-congress",
+      "workflow": "CI",
+      "limit": 10,
+      "pain_url": "https://github.com/icook/tiny-congress/pull/683",
+      "proof_url": "https://github.com/icook/tiny-congress/actions/workflows/ci.yml",
+      "source_url": "https://github.com/icook/tiny-congress/pull/683",
+      "notes": "Merged PR split Rust checks and added Garage S3-backed sccache for ARC runners."
+    }
+  ]
+}
