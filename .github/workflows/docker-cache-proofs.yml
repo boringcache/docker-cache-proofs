@@ -52,7 +52,7 @@ permissions:
 
 jobs:
   case:
-    name: ${{ format('Resolve {0} ({1}, output={2})', inputs.case_id, inputs.ref_key, inputs.build_output) }}
+    name: Resolve
     runs-on: ubuntu-latest
     outputs:
       case_id: ${{ steps.case.outputs.case_id }}
@@ -73,7 +73,7 @@ jobs:
         run: ./scripts/emit-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" "${{ inputs.build_output }}"
 
   boringcache-oci:
-    name: ${{ format('BC / {0} / {1} / {2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
+    name: BC / OCI
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -125,7 +125,7 @@ jobs:
           cli_ref: ${{ inputs.cli_ref }}
 
   boringcache-auto:
-    name: ${{ format('BC auto / {0} / {1} / {2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
+    name: BC auto
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -177,7 +177,7 @@ jobs:
           cli_ref: ${{ inputs.cli_ref }}
 
   github-actions-cache:
-    name: ${{ format('GHA / {0} / {1} / {2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
+    name: GHA
     needs: case
     if: ${{ inputs.include_gha_reference }}
     runs-on: ${{ needs.case.outputs.runner_label }}
