@@ -1556,6 +1556,56 @@ first_build_label_value="$(first_build_label "$lane")"
 first_build_detail_label_value="${first_build_label_value% build}"
 comparison_header_label_value="$(comparison_header_label "$lane")"
 strategy_label_value="$(strategy_label "$strategy")"
+session_summary_output_payload="$session_summary_payload"
+native_tool_output_payload="$native_tool_payload"
+cache_review_output_payload="$cache_review_payload"
+
+if [[ "$single_phase_proof" == "true" ]]; then
+  session_summary_output_payload="$(jq -c '
+    def compact:
+      with_entries(select(.value != null and .value != "" and .value != {}));
+    if type != "object" then
+      null
+    else
+      {
+        "schema": (.summary_schema // .schema_version // .schema // null),
+        "metrics": (.metrics // null),
+        "review": (.review // null),
+        "classification": (.classification // null),
+        "cache_target": (.cache_target // .tag // null)
+      } | compact
+    end
+  ' <<< "$session_summary_payload")"
+  native_tool_output_payload="$(jq -c '
+    def compact:
+      with_entries(select(.value != null and .value != "" and .value != {}));
+    if type != "object" then
+      null
+    else
+      {
+        "tool": (.tool // null),
+        "schema_version": (.schema_version // null),
+        "cache_tag": (.cache_tag // null),
+        "command": (.command // null),
+        "restore": ({
+          "classification": (.restore.classification // null)
+        } | compact),
+        "publish": ({
+          "cache_temperature": (.publish.cache_temperature // null),
+          "mode": (.publish.mode // null)
+        } | compact)
+      } | compact
+    end
+  ' <<< "$native_tool_payload")"
+  slow_reason_payload="$(jq -c --argjson native_tool "$native_tool_output_payload" '.native_tool = $native_tool' <<< "$slow_reason_payload")"
+  cache_review_output_payload="$(jq -c --argjson native_tool "$native_tool_output_payload" '
+    if type != "object" then
+      null
+    else
+      .native_tool = $native_tool
+    end
+  ' <<< "$cache_review_payload")"
+fi
 
 if [[ "$single_phase_proof" == "true" ]]; then
   runs_payload="$(jq -n -c \
@@ -1717,9 +1767,9 @@ cat > "$json_path" <<JSON
   "restore_result": $(json_string_or_null "$restore_result"),
   "save_result": $(json_string_or_null "$save_result"),
   "publish_status": $(json_string_or_null "$publish_status"),
-  "session_summary": $session_summary_payload,
-  "cache_review": $cache_review_payload,
-  "native_tool": $native_tool_payload,
+  "session_summary": $session_summary_output_payload,
+  "cache_review": $cache_review_output_payload,
+  "native_tool": $native_tool_output_payload,
   "reporting_url": $(json_string_or_null "$reporting_url"),
   "launch_proof_paths": $launch_proof_paths_payload,
   "slow_reason": $slow_reason_payload,
