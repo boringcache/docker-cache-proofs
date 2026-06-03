@@ -73,7 +73,7 @@ jobs:
         run: ./scripts/emit-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" "${{ inputs.build_output }}"
 
   boringcache-oci:
-    name: ${{ format('{0} | BoringCache OCI | {1} | output={2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
+    name: ${{ format('BC / {0} / {1} / {2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -125,7 +125,7 @@ jobs:
           cli_ref: ${{ inputs.cli_ref }}
 
   boringcache-auto:
-    name: ${{ format('{0} | BoringCache Auto | {1} | output={2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
+    name: ${{ format('BC auto / {0} / {1} / {2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -177,7 +177,7 @@ jobs:
           cli_ref: ${{ inputs.cli_ref }}
 
   github-actions-cache:
-    name: ${{ format('{0} | GitHub Actions Cache | {1} | output={2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
+    name: ${{ format('GHA / {0} / {1} / {2}', needs.case.outputs.case_id, inputs.cache_lane, inputs.build_output) }}
     needs: case
     if: ${{ inputs.include_gha_reference }}
     runs-on: ${{ needs.case.outputs.runner_label }}
