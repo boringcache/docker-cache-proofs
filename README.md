@@ -43,4 +43,4 @@ For current official/proof run buckets, use:
 scripts/collect-run-data.sh --output docs/current-run-data.md
 ```
 
-See [`docs/prospect-proof-plan.md`](docs/prospect-proof-plan.md) for the Docker-first proof queue and non-Docker adapter leads.
+See [`docs/prospect-proof-plan.md`](docs/prospect-proof-plan.md) for the Docker-first proof queue and non-Docker adapter leads. For cross-session context, start with [`docs/session-handoff.md`](docs/session-handoff.md).

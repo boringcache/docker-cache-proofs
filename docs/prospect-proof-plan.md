@@ -4,6 +4,8 @@ This repo is now framed as `painful-builds` / `Painful Builds`: Docker-first tod
 
 Public pain signals below are market context, not customer proof or endorsements.
 
+Cross-session handoff: [`docs/session-handoff.md`](session-handoff.md) has the latest Phentrieve run links, rolling materialization diagnosis, artifact metrics, and next proof actions.
+
 ## Docker Proof Queue
 
 | Rank | Case | Lead/team | Pain link | Proof link | Current proof action |
