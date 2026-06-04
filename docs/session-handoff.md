@@ -28,14 +28,22 @@ Workspace contract:
 - The GitHub repo remains `boringcache/docker-cache-proofs` plural.
 - Tool proof run https://github.com/boringcache/docker-cache-proofs/actions/runs/26956862006 used the wrong workspace, `boringcache/tool-cache-proof`. The measured Aranya command ran and emitted sccache stats, but save failed with `Resource not found` on `/v2/workspaces/boringcache/tool-cache-proof/caches`, then proxy shutdown timed out after 180s with 1329 pending entries. Treat that run as cold compile evidence only; do not use it for warm/rolling cache-read claims.
 
-Current rerun blockers/fixes:
+Completed Rust/sccache proof readout:
 
-- Aranya: re-run fresh after the workspace fix, then only dispatch rolling after a fresh save succeeds.
-- Tiny Congress: initial command reached Rust/test work, then failed because `tc-postgres:local` was missing. The manifest now builds the local image during setup, and setup commands now run from the source working directory instead of the proof repo.
+| Case | Run | Result | Readiness read |
+|---|---|---:|---|
+| Aranya fresh `main` | https://github.com/boringcache/docker-cache-proofs/actions/runs/26958655351 | 1097s cold command; 0.1% hit rate; 0 cache errors/timeouts | Cold population only. Confirms the corrected workspace can publish the native-tool cache. |
+| Aranya rolling bootstrap | https://github.com/boringcache/docker-cache-proofs/actions/runs/26959842102 | 1136s cold command; 0.1% hit rate; 0 cache errors/timeouts | Rolling cache scope was populated successfully. |
+| Aranya rolling1 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26961030438 | 818s command; 91.6% hit rate; 1186 hits / 109 misses; 0 cache errors/timeouts | Strong reuse, but still has real Rust misses plus non-cacheable/test tail. |
+| Aranya rolling2 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26961876589 | 738s command; 100% hit rate; 1295 hits / 0 misses; 0 cache errors/timeouts | Adapter path is ready for compiler-cache reuse. Remaining time is not compiler misses. |
+| Tiny Congress fresh `main` | https://github.com/boringcache/docker-cache-proofs/actions/runs/26958655353 | 364s cold command; 0% hit rate; 0 cache errors/timeouts | Cold population only. The local `tc-postgres:local` setup is now fixed. |
+| Tiny Congress rolling bootstrap | https://github.com/boringcache/docker-cache-proofs/actions/runs/26959137096 | 6m45s job; 0 hits across 562 compile requests | Rolling cache scope was populated successfully. |
+| Tiny Congress rolling1 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26959544517 | 282s command; 100% hit rate; 419 hits / 0 misses; 0 cache errors/timeouts | Compiler cache is fully hot; remaining time is workflow/test/setup work. |
+| Tiny Congress rolling2 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26959859541 | 252s command; 100% hit rate; 419 hits / 0 misses; 0 cache errors/timeouts | Confirms rolling1 was not a one-off. Lower outreach priority because they already built a Garage/S3 workaround. |
 
 Qualified but not wired:
 
-- Josh: https://github.com/josh-project/josh/pull/2025 is very current and strong, and it is plausibly a good BoringCache sidecar/proxy fit. The real workload is Rust builds inside no-internet build containers via an R2 sidecar proxy, so do not run the generic host-side sccache proof. TODO: add a `josh-rust-container` lane that models Podman/build-container networking, where the build container can reach only a BoringCache proxy/sidecar and never receives cache credentials. Fold this into the Docker `--tool-cache` story for Rust inside containers.
+- Josh: https://github.com/josh-project/josh/pull/2025 is very current and strong, and it is plausibly a good BoringCache sidecar/proxy fit. The real workload is Rust builds inside no-internet build containers via an R2 sidecar proxy, so do not run the generic host-side sccache proof. The merged PR sets `network="sidecar"` on `ws/build-rust.josh` and `ws/test.josh`, creates an internal `josh-sccache-net`, starts an `aws-sigv4-proxy` sidecar with bridge plus internal network access, then injects `SCCACHE_ENDPOINT=http://{SIDECAR_IP}:3000` into the build container. TODO: add a `josh-rust-container` lane that models Podman/build-container networking, where the build container can reach only a BoringCache proxy/sidecar and never receives cache credentials. Fold this into the Docker `--tool-cache` story for Rust inside containers. Local note: this Mac workspace does not currently have `podman` installed, so a faithful local reproduction needs Podman setup or CI-side execution.
 - Turborepo: https://github.com/vercel/turborepo/issues/863 is useful content/fan-out context, but the issue was closed after Turbo added retention controls. Find an active repo before adding a runnable Turbo lane.
 - Gradle: https://github.com/gradle/actions/issues/316 is open, but the pain is reusable-workflow/User Home cache-key collision. BoringCache Gradle remote cache fixes build-output reuse, not GitHub's missing job-identity keying by itself.
 
