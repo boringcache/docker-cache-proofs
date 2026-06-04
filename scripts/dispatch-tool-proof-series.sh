@@ -222,7 +222,9 @@ if [[ "$run_rolling" == "true" ]]; then
   if [[ "$include_rolling_bootstrap" == "true" ]]; then
     dispatch_one "$rolling_bootstrap_ref" "rolling"
   fi
-  for ref_key in "${rolling_refs[@]}"; do
-    dispatch_one "$ref_key" "rolling"
-  done
+  if [[ "${#rolling_refs[@]}" -gt 0 ]]; then
+    for ref_key in "${rolling_refs[@]}"; do
+      dispatch_one "$ref_key" "rolling"
+    done
+  fi
 fi
