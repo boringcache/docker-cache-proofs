@@ -33,6 +33,7 @@ Completed Rust/sccache proof readout:
 | Case | Run | Result | Readiness read |
 |---|---|---:|---|
 | Aranya fresh `main` | https://github.com/boringcache/docker-cache-proofs/actions/runs/26958655351 | 1097s cold command; 0.1% hit rate; 0 cache errors/timeouts | Cold population only. Confirms the corrected workspace can publish the native-tool cache. |
+| Aranya rolling `main` same-commit | https://github.com/boringcache/docker-cache-proofs/actions/runs/26965167907 | 733s command; 100% hit rate; 1295 hits / 0 misses; 0 cache errors/timeouts | Same source commit as official Aranya run `26174641840` (`577b2193...`). Clean comparison against their GHA-backed sccache sample. |
 | Aranya rolling bootstrap | https://github.com/boringcache/docker-cache-proofs/actions/runs/26959842102 | 1136s cold command; 0.1% hit rate; 0 cache errors/timeouts | Rolling cache scope was populated successfully. |
 | Aranya rolling1 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26961030438 | 818s command; 91.6% hit rate; 1186 hits / 109 misses; 0 cache errors/timeouts | Strong reuse, but still has real Rust misses plus non-cacheable/test tail. |
 | Aranya rolling2 | https://github.com/boringcache/docker-cache-proofs/actions/runs/26961876589 | 738s command; 100% hit rate; 1295 hits / 0 misses; 0 cache errors/timeouts | Adapter path is ready for compiler-cache reuse. Remaining time is not compiler misses. |
