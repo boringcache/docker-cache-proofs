@@ -23,7 +23,7 @@
     ],
     "setup_commands": [
       "bash \"$GITHUB_WORKSPACE/scripts/prepare-josh-container-source.sh\"",
-      ".github/workflows/scripts/install-podman.sh",
+      "GITHUB_WORKSPACE=\"$SOURCE_PATH\" .github/workflows/scripts/install-podman.sh",
       "RUSTC_WRAPPER=sccache cargo build --release -p josh-cli"
     ],
     "notes": "Josh runs Rust build/test work inside Podman containers with no direct internet. This proof replaces their R2-signing sidecar with a BoringCache WebDAV sidecar and captures sccache stats from inside the build container."
