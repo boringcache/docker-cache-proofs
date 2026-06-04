@@ -10,19 +10,28 @@ if [[ -n "${TOOL_SETUP_APT_PACKAGES:-}" ]]; then
 fi
 
 if [[ -n "${TOOL_SETUP_COMMANDS:-}" ]]; then
+  source_root=""
   setup_workdir=""
   if [[ -n "${SOURCE_PATH:-}" ]]; then
+    if [[ "${SOURCE_PATH}" == /* ]]; then
+      source_root="${SOURCE_PATH%/}"
+    else
+      source_root="$(cd "${SOURCE_PATH%/}" && pwd)"
+    fi
+
     working_directory="${TOOL_WORKING_DIRECTORY:-.}"
     if [[ "$working_directory" == "." ]]; then
-      setup_workdir="${SOURCE_PATH%/}"
+      setup_workdir="${source_root}"
     else
-      setup_workdir="${SOURCE_PATH%/}/${working_directory#./}"
+      setup_workdir="${source_root}/${working_directory#./}"
     fi
 
     if [[ ! -d "$setup_workdir" ]]; then
       echo "Missing setup working directory: $setup_workdir" >&2
       exit 1
     fi
+
+    export SOURCE_PATH="$source_root"
   fi
 
   while IFS= read -r setup_command; do
