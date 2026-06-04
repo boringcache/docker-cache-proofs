@@ -72,8 +72,7 @@ gh workflow run "Docker Cache Proof" \
   -f ref_key=rolling1 \
   -f cache_lane=rolling \
   -f build_output=none \
-  -f include_gha_reference=false \
-  -f cli_ref=
+  -f include_gha_reference=false
 ```
 
 Rolling runs must be ordered. Dispatching `rolling1`, `rolling2`, and `rolling3` concurrently turns the result into cache contention, not continuous-commit evidence.

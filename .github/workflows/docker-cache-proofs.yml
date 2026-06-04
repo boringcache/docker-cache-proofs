@@ -1,6 +1,6 @@
 name: Docker Cache Proof
 run-name: >-
-  ${{ format('{0} | {1} | {2} | output={3}{4}{5}', inputs.case_id, inputs.ref_key, inputs.cache_lane, inputs.build_output, inputs.include_gha_reference && ' | +GHA' || '', inputs.cli_ref != '' && format(' | cli={0}', inputs.cli_ref) || '') }}
+  ${{ format('{0} | {1} | {2} | output={3}{4}', inputs.case_id, inputs.ref_key, inputs.cache_lane, inputs.build_output, inputs.include_gha_reference && ' | +GHA' || '') }}
 
 on:
   workflow_dispatch:
@@ -40,12 +40,6 @@ on:
         required: true
         type: boolean
         default: false
-      cli_ref:
-        description: Optional BoringCache CLI git ref
-        required: false
-        type: string
-        default: ''
-
 permissions:
   contents: read
   actions: write
@@ -122,8 +116,6 @@ jobs:
           runner_label: ${{ needs.case.outputs.runner_label }}
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
-          cli_ref: ${{ inputs.cli_ref }}
-
   boringcache-auto:
     name: BC auto
     needs: case
@@ -174,8 +166,6 @@ jobs:
           runner_label: ${{ needs.case.outputs.runner_label }}
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
-          cli_ref: ${{ inputs.cli_ref }}
-
   github-actions-cache:
     name: GHA
     needs: case
@@ -224,4 +214,3 @@ jobs:
           runner_label: ${{ needs.case.outputs.runner_label }}
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
-          cli_ref: ${{ inputs.cli_ref }}

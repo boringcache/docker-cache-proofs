@@ -9,7 +9,6 @@ fresh_ref="main"
 rolling_bootstrap_ref="main"
 build_output="none"
 include_gha_reference="false"
-cli_ref=""
 run_fresh="true"
 run_rolling="true"
 include_rolling_bootstrap="true"
@@ -38,7 +37,6 @@ Options:
   --rolling-refs A,B,C            Add comma-separated rolling ref keys
   --build-output MODE             none, load, or local-registry (default: none)
   --include-gha-reference BOOL    true/false (default: false)
-  --cli-ref REF                   Optional internal CLI ref
   --skip-fresh                    Do not dispatch the fresh lane
   --skip-rolling                  Do not dispatch rolling lanes
   --skip-rolling-bootstrap        Do not dispatch rolling bootstrap/update on main
@@ -97,10 +95,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --include-gha-reference)
       include_gha_reference="$2"
-      shift 2
-      ;;
-    --cli-ref)
-      cli_ref="$2"
       shift 2
       ;;
     --skip-fresh)
@@ -236,7 +230,6 @@ dispatch_one() {
     -f "cache_lane=${lane}"
     -f "build_output=${build_output}"
     -f "include_gha_reference=${include_gha_reference}"
-    -f "cli_ref=${cli_ref}"
   )
 
   printf 'Dispatching:'
