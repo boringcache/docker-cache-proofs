@@ -39,6 +39,14 @@ Qualified but not wired:
 - Turborepo: https://github.com/vercel/turborepo/issues/863 is useful content/fan-out context, but the issue was closed after Turbo added retention controls. Find an active repo before adding a runnable Turbo lane.
 - Gradle: https://github.com/gradle/actions/issues/316 is open, but the pain is reusable-workflow/User Home cache-key collision. BoringCache Gradle remote cache fixes build-output reuse, not GitHub's missing job-identity keying by itself.
 
+Wider fan-out added to `prospects/run-sources.json`:
+
+- Linera Rust CI: https://github.com/linera-io/linera-protocol/issues/5475 says Rust cache has a 100% miss rate and explicitly recommends S3-compatible sccache. Strong, but overlaps Aranya/Josh.
+- Vercel AI: https://github.com/vercel/ai/issues/15393 reports Turbo remote cache blocked in CI with 0/111 hits and about 6.5m per matrix job. Strongest current Turbo lead if we can isolate `test_matrix`.
+- MapLibre Native FFI: https://github.com/maplibre/maplibre-native-ffi/issues/7 proposes R2 public-read sccache for heavy native/vendor compiles. Strong shared-cache story, but contributor-local as much as CI.
+- BambuStudio: https://github.com/BenJule/BambuStudio/issues/452 is a very current Windows/MSVC compiler-cache pain, but not first portable proof.
+- Besu: https://github.com/besu-eth/besu/issues/10427 asks for Gradle caching across workflows; current public integration-test runs look short, so qualify before proof work.
+
 ## Phentrieve Proof State
 
 Pain source:
