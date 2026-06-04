@@ -13,6 +13,7 @@ on:
           - phentrieve-api
           - wormhole-solana
           - cardstack-realm-server
+          - kvrocks-docker
       ref_key:
         description: Pinned case ref
         required: true

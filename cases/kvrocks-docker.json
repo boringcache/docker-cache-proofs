@@ -1,0 +1,23 @@
+{
+  "id": "kvrocks-docker",
+  "name": "Apache Kvrocks Docker image",
+  "source": {
+    "repo": "apache/kvrocks",
+    "evidence_run": "https://github.com/apache/kvrocks/actions/runs/26924643510",
+    "runner": "GitHub-hosted ubuntu-24.04"
+  },
+  "refs": {
+    "main": "1f8257586dc9fd48138cea7b5c06d291858741b8"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile",
+    "image": "kvrocks",
+    "platform": "linux/amd64",
+    "original_cache": "type=gha"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true
+  }
+}
