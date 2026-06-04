@@ -97,3 +97,13 @@ if ! grep -q 'run-cargo-test-with-stats.sh' "$test_ws"; then
   echo "Failed to patch Josh test workspace with sccache stats command" >&2
   exit 1
 fi
+
+fetch_ws="$source_dir/ws/fetch.josh"
+if [[ -f "$fetch_ws" ]] && ! grep -q 'RUSTC_WRAPPER' "$fetch_ws"; then
+  perl -0pi -e 's{:\$cmd="cargo fetch --locked"}{:\$cmd="env -u RUSTC_WRAPPER -u SCCACHE_WEBDAV_ENDPOINT -u SCCACHE_ENDPOINT cargo fetch --locked"}' "$fetch_ws"
+fi
+
+if [[ -f "$fetch_ws" ]] && ! grep -q 'RUSTC_WRAPPER' "$fetch_ws"; then
+  echo "Failed to patch Josh fetch workspace to run without sccache wrapper" >&2
+  exit 1
+fi
