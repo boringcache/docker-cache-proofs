@@ -1,0 +1,203 @@
+name: Tool Cache Proof
+run-name: >-
+  ${{ format('{0} | {1} | {2}', inputs.case_id, inputs.ref_key, inputs.cache_lane) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Tool cache case to run
+        required: true
+        type: choice
+        options:
+          - aranya-rust
+          - tiny-congress-rust
+      ref_key:
+        description: Pinned case ref
+        required: true
+        type: string
+        default: main
+      cache_lane:
+        description: Benchmark lane
+        required: true
+        type: choice
+        default: fresh
+        options:
+          - fresh
+          - rolling
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  boringcache-rust-sccache:
+    name: BC / sccache
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BENCHMARK_WORKSPACE: boringcache/tool-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Resolve tool case
+        id: case
+        run: ./scripts/emit-tool-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Guard supported adapter
+        if: steps.case.outputs.adapter != 'rust-sccache'
+        run: |
+          echo "Unsupported adapter for Tool Cache Proof: ${{ steps.case.outputs.adapter }}" >&2
+          exit 1
+
+      - name: Free disk space
+        if: steps.case.outputs.free_disk_space == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune --all --volumes --force
+          df -h /
+
+      - name: Prepare pinned source tree
+        run: ./scripts/prepare-tool-case-source.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Prepare benchmark scope
+        id: scope
+        run: |
+          set -euo pipefail
+          ref_slug="$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9._-' '-')"
+          ref_slug="${ref_slug#-}"
+          ref_slug="${ref_slug%-}"
+          ref_slug="${ref_slug:-main}"
+          if [[ "${CACHE_LANE}" == "rolling" ]]; then
+            cache_tag="${{ steps.case.outputs.cache_id }}-rolling-${ref_slug}-${{ inputs.case_id }}"
+          else
+            cache_tag="${{ steps.case.outputs.cache_id }}-run-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          fi
+          echo "cache_tag=${cache_tag}" >> "$GITHUB_OUTPUT"
+          echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate BoringCache secrets
+        env:
+          BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
+          BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "${BORINGCACHE_RESTORE_TOKEN}" ]] || { echo "Missing BORINGCACHE_RESTORE_TOKEN secret" >&2; exit 1; }
+          [[ -n "${BORINGCACHE_SAVE_TOKEN}" ]] || { echo "Missing BORINGCACHE_SAVE_TOKEN secret" >&2; exit 1; }
+
+      - name: Configure boringcache/one for Rust sccache
+        id: bc
+        uses: boringcache/one@v1
+        with:
+          setup: mise
+          mode: rust-sccache
+          workspace: ${{ env.BENCHMARK_WORKSPACE }}
+          working-directory: ${{ steps.case.outputs.source_path }}/${{ steps.case.outputs.working_directory }}
+          cache-tag: ${{ steps.scope.outputs.cache_tag }}
+          cache-cargo: true
+          cache-target: false
+          tools: rust@${{ steps.case.outputs.rust_toolchain }}
+          sccache: true
+          sccache-mode: proxy
+          sccache-version: 0.14.0
+          proxy-port: 5000
+          cache-runtime: false
+          verbose: true
+        env:
+          BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
+          BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
+          BORINGCACHE_PROXY_METADATA_HINTS: benchmark=${{ steps.case.outputs.benchmark_id }},phase=${{ inputs.cache_lane == 'rolling' && 'commit' || 'cold' }},adapter=sccache
+
+      - name: Run case setup
+        env:
+          TOOL_SETUP_APT_PACKAGES: ${{ steps.case.outputs.setup_apt_packages }}
+          TOOL_SETUP_COMMANDS: ${{ steps.case.outputs.setup_commands }}
+        run: ./scripts/run-tool-case-setup.sh
+
+      - name: Run measured Rust/sccache command
+        id: measured
+        env:
+          SOURCE_PATH: ${{ steps.case.outputs.source_path }}
+          TOOL_WORKING_DIRECTORY: ${{ steps.case.outputs.working_directory }}
+          TOOL_BUILD_COMMAND: ${{ steps.case.outputs.measured_command }}
+          BENCHMARK_METRICS_OUTPUT: ${{ runner.temp }}/tool-proof-metrics.env
+          BENCHMARK_SCCACHE_STATS_FILE: benchmark-native-tool/sccache-stats.txt
+        run: |
+          set +e
+          ./scripts/run-rust-sccache-proof.sh
+          status="$?"
+          set -e
+          build_seconds="$(grep '^build_seconds=' "$RUNNER_TEMP/tool-proof-metrics.env" 2>/dev/null | tail -n1 | cut -d= -f2 || true)"
+          build_seconds="${build_seconds:-0}"
+          finished_at="$(date +%s)"
+          total_seconds="$((finished_at - ${{ steps.scope.outputs.started_at }}))"
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "build_seconds=${build_seconds}" >> "$GITHUB_OUTPUT"
+          echo "total_seconds=${total_seconds}" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Write benchmark artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results
+          native_tool_args=()
+          if [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
+            native_tool_args=(--native-tool sccache --sccache-stats-file benchmark-native-tool/sccache-stats.txt)
+          fi
+          started_at="${{ steps.scope.outputs.started_at }}"
+          started_at="${started_at:-$(date +%s)}"
+          cold_seconds="${{ steps.measured.outputs.total_seconds }}"
+          cold_build_seconds="${{ steps.measured.outputs.build_seconds }}"
+          if [[ -z "$cold_seconds" ]]; then
+            cold_seconds="$(($(date +%s) - started_at))"
+          fi
+          cold_build_seconds="${cold_build_seconds:-0}"
+          save_result="skipped-build-failed"
+          if [[ "${{ steps.measured.outputs.status }}" == "0" ]]; then
+            save_result="attempted"
+          fi
+          ./scripts/write-benchmark-artifacts.sh \
+            --benchmark "${{ steps.case.outputs.benchmark_id }}" \
+            --strategy boringcache \
+            --lane "${{ inputs.cache_lane }}" \
+            --project-repo "${{ steps.case.outputs.project_repo }}" \
+            --project-ref "${{ steps.case.outputs.project_ref }}" \
+            --cold-seconds "$cold_seconds" \
+            --cold-build-seconds "$cold_build_seconds" \
+            --cache-storage-bytes "0" \
+            --cache-storage-source "not-probed" \
+            --hit-behavior-note "Rust/sccache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}." \
+            --workspace "${BENCHMARK_WORKSPACE}" \
+            --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
+            --mode rust-sccache \
+            --adapter sccache \
+            --restore-result "${{ steps.bc.outputs.sccache-hit }}" \
+            --save-result "$save_result" \
+            --output-dir benchmark-results \
+            "${native_tool_args[@]}"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+          path: benchmark-results/
+          if-no-files-found: error
+
+      - name: Upload native tool stats
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-native-tool-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+          path: benchmark-native-tool/
+          if-no-files-found: ignore

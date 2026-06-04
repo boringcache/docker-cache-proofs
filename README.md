@@ -20,6 +20,15 @@ The GitHub repository is currently `boringcache/docker-cache-proofs`; the aligne
 | `wormhole-solana` | Workflow says GHA cache can hang on large Docker uploads. | [Official slow Solana job](https://github.com/wormhole-foundation/native-token-transfers/actions/runs/26104579611/job/76764717136); BoringCache proof runs in this repo. |
 | `cardstack-realm-server` | Cardstack workflow/action notes say GHA cache transfer for large pnpm-fetch layers was slower than rerunning fetch, so they moved to ECR registry cache. | [Official deploy sample](https://github.com/cardstack/boxel/actions/runs/25861223646); BoringCache proof runs in this repo. |
 
+## Tool Cache Cases
+
+Use the `Tool Cache Proof` workflow for prospect-shaped adapter runs that are not Docker image builds.
+
+| Case | Adapter | Public pain | Readiness |
+|---|---|---|---|
+| `aranya-rust` | Rust/sccache | [Aranya CI compile-time issue](https://github.com/aranya-project/aranya/issues/135): open issue, GHA cache called not ideal, S3-backed sccache considered. | Pitch-ready first Rust proof. |
+| `tiny-congress-rust` | Rust/sccache | [Tiny Congress PR](https://github.com/icook/tiny-congress/pull/683): ARC runners plus Garage S3-backed sccache. | Reference proof; they already built a workaround. |
+
 ## First Manual Runs
 
 Use the Docker lane in the `Docker Cache Proof` workflow with:
@@ -30,10 +39,17 @@ Use the Docker lane in the `Docker Cache Proof` workflow with:
 
 Fresh lanes may export cache for storage accounting, but they do not run a second build. Rolling lanes own prior-cache import/update evidence.
 
+Use the tool-cache lane in the `Tool Cache Proof` workflow with:
+
+- `cache_lane=fresh` for one pinned source build with a per-run cache tag;
+- `cache_lane=rolling` for one commit build against a stable rolling cache tag;
+- `case_id=aranya-rust` first, because its pain is current and directly addressed by the Rust/sccache adapter.
+
 For ordered fresh + rolling runs, use:
 
 ```bash
 scripts/dispatch-proof-series.sh --case phentrieve-api --build-output none
+scripts/dispatch-tool-proof-series.sh --case aranya-rust
 ```
 
 For current official/proof run buckets, use:

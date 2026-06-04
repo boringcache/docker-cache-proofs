@@ -30,6 +30,20 @@
       "notes": "BoringCache OCI/auto proof lanes for Phentrieve, Wormhole, and Cardstack."
     },
     {
+      "id": "tool-cache-proofs",
+      "bucket": "Tool proof",
+      "adapter": "BoringCache proof",
+      "label": "Painful Builds tool-cache lane",
+      "lead": "BoringCache",
+      "repo": "boringcache/docker-cache-proofs",
+      "workflow": "Tool Cache Proof",
+      "limit": 20,
+      "pain_url": "https://github.com/aranya-project/aranya/issues/135",
+      "proof_url": "https://github.com/boringcache/docker-cache-proofs/actions/workflows/tool-cache-proofs.yml",
+      "source_url": "https://github.com/boringcache/docker-cache-proofs/actions/workflows/tool-cache-proofs.yml",
+      "notes": "BoringCache Rust/sccache proof lane for prospect-shaped tool-cache cases such as Aranya and Tiny Congress."
+    },
+    {
       "id": "aranya-unit-tests",
       "bucket": "sccache lead",
       "adapter": "Rust/sccache",
@@ -39,7 +53,7 @@
       "workflow": "Unit tests",
       "limit": 10,
       "pain_url": "https://github.com/aranya-project/aranya/issues/135",
-      "proof_url": "https://github.com/aranya-project/aranya/actions/workflows/unit-test.yml",
+      "proof_url": "https://github.com/aranya-project/aranya/actions/workflows/tests.yml",
       "source_url": "https://github.com/aranya-project/aranya/issues/135",
       "notes": "Public issue asks for faster compile/test CI; comments discuss GHA sccache limitations and S3-backed sccache."
     },
@@ -55,7 +69,7 @@
       "pain_url": "https://github.com/josh-project/josh/pull/2025",
       "proof_url": "https://github.com/josh-project/josh/actions/workflows/rust.yml",
       "source_url": "https://github.com/josh-project/josh/pull/2025",
-      "notes": "Open PR adds R2 sccache via sidecar proxy because build containers run without direct internet."
+      "notes": "Merged PR adds R2 sccache via sidecar proxy because build containers run without direct internet."
     },
     {
       "id": "tiny-congress-ci",

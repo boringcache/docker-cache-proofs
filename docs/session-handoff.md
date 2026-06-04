@@ -1,6 +1,6 @@
 # Painful Builds Session Handoff
 
-Last updated: 2026-06-03.
+Last updated: 2026-06-04.
 
 Use this note to summon the prospect/proof context from another Codex session. The repo is still hosted as `boringcache/docker-cache-proofs`, but the working product frame is `Painful Builds`: Docker/BuildKit first, adapter-wide later.
 
@@ -9,8 +9,24 @@ Use this note to summon the prospect/proof context from another Codex session. T
 - Main proof plan: `docs/prospect-proof-plan.md`.
 - Run bucket collector: `scripts/collect-run-data.sh --output docs/current-run-data.md`.
 - Ordered proof dispatcher: `scripts/dispatch-proof-series.sh --case phentrieve-api --build-output none`.
+- Ordered tool-cache proof dispatcher: `scripts/dispatch-tool-proof-series.sh --case aranya-rust`.
 - Native BuildKit local debugging: `docs/native-buildkit-local-harness.md`.
 - Prospect/source inventory: `prospects/run-sources.json`.
+
+## Tool Cache Proof State
+
+The repo now has a `Tool Cache Proof` workflow for prospect-shaped non-Docker pain where a BoringCache adapter directly fits the complaint. Current runnable cases:
+
+| Case | Adapter | Pain | Read |
+|---|---|---|---|
+| `aranya-rust` | Rust/sccache | https://github.com/aranya-project/aranya/issues/135 | First pitch-ready tool proof. Issue is open; maintainers discuss GHA sccache pain and S3-backed sccache. Recent unit-test runs are roughly 14-22m. |
+| `tiny-congress-rust` | Rust/sccache | https://github.com/icook/tiny-congress/pull/683 | Reference proof, not first outreach. They already added ARC parallelism plus Garage S3-backed sccache; recent CI is around 7-8m. |
+
+Qualified but not wired:
+
+- Josh: https://github.com/josh-project/josh/pull/2025 is very current and strong, and it is plausibly a good BoringCache sidecar/proxy fit. The real workload is Rust builds inside no-internet build containers via an R2 sidecar proxy, so do not run the generic host-side sccache proof. TODO: add a `josh-rust-container` lane that models Podman/build-container networking, where the build container can reach only a BoringCache proxy/sidecar and never receives cache credentials. Fold this into the Docker `--tool-cache` story for Rust inside containers.
+- Turborepo: https://github.com/vercel/turborepo/issues/863 is useful content/fan-out context, but the issue was closed after Turbo added retention controls. Find an active repo before adding a runnable Turbo lane.
+- Gradle: https://github.com/gradle/actions/issues/316 is open, but the pain is reusable-workflow/User Home cache-key collision. BoringCache Gradle remote cache fixes build-output reuse, not GitHub's missing job-identity keying by itself.
 
 ## Phentrieve Proof State
 

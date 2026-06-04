@@ -1,0 +1,30 @@
+{
+  "id": "tiny-congress-rust",
+  "name": "Tiny Congress Rust backend cache proof",
+  "adapter": "rust-sccache",
+  "source": {
+    "repo": "icook/tiny-congress",
+    "pain_url": "https://github.com/icook/tiny-congress/pull/683",
+    "workflow_url": "https://github.com/icook/tiny-congress/actions/workflows/ci.yml",
+    "evidence_run": "https://github.com/icook/tiny-congress/actions/runs/24946974229",
+    "readiness": "reference"
+  },
+  "refs": {
+    "main": "7e58c17500ad2d742183002ef2bb0ab93baf6044",
+    "rolling1": "8b10d6e1223f14cd52fa7c2634938e5a557f9760",
+    "rolling2": "617fc06d3dd6d38b449c172dab1ea76699d96938"
+  },
+  "tool": {
+    "rust_toolchain": "1.91.0",
+    "working_directory": ".",
+    "measured_command": "cargo test -p tinycongress-api --no-default-features",
+    "setup_apt_packages": [],
+    "setup_commands": [],
+    "notes": "Upstream PR already added Garage S3-backed sccache on ARC runners. This lane is useful as a reference proof, not a first outreach target."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": false,
+    "timeout_minutes": 120
+  }
+}

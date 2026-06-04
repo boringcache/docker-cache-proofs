@@ -86,20 +86,33 @@ scripts/collect-run-data.sh --output docs/current-run-data.md
 
 The source config lives in [`prospects/run-sources.json`](../prospects/run-sources.json).
 
-## Non-Docker Leads
+Dispatch a complete ordered tool-cache proof with:
 
-| Rank | Adapter | Lead/team | Source | Why not in `docker-cache-proofs` | Next proof path |
+```bash
+scripts/dispatch-tool-proof-series.sh --case aranya-rust
+```
+
+## Tool Cache Proof Queue
+
+| Rank | Case | Adapter | Lead/team | Source | Current pain read | Proof action |
 |---:|---|---|---|---|---|
-| 1 | Rust/sccache | `aranya-project/aranya` maintainers | [`aranya#135`](https://github.com/aranya-project/aranya/issues/135) | The pain is Rust compile/test cache on GHA runners, not image layer cache. | sccache adapter proof; compare GHA sccache/GHA cache versus BoringCache WebDAV/native. |
-| 2 | Rust/sccache | `josh-project/josh` / Christian Schilling | [`josh#2025`](https://github.com/josh-project/josh/pull/2025) | The PR is R2 sccache sidecar glue for build containers with no direct internet. | sccache proof/content: "remove bespoke R2 sidecar cache glue." |
-| 3 | Rust/sccache | `icook/tiny-congress` | [`tiny-congress#683`](https://github.com/icook/tiny-congress/pull/683) | The improvement is ARC runner parallelism plus Garage S3-backed sccache. | Content/reference; less urgent because they already built an in-cluster solution. |
-| 4 | Turbo | `vercel/turborepo` commenters | [`turborepo#863`](https://github.com/vercel/turborepo/issues/863) | The pain is task-cache growth, not Docker cache export. | Turbo/Nx adapter proof and cleanup/growth content. |
-| 5 | Gradle | `cloudshiftchris`, Kotest-shaped reusable workflow users | [`gradle/actions#316`](https://github.com/gradle/actions/issues/316) | The pain is Gradle User Home/cache-key behavior on reusable workflows. | Gradle adapter proof; OpenTelemetry Java remains the stronger benchmark anchor. |
+| 1 | `aranya-rust` | Rust/sccache | `aranya-project/aranya` maintainers | [`aranya#135`](https://github.com/aranya-project/aranya/issues/135), [recent unit-test run](https://github.com/aranya-project/aranya/actions/runs/26174641840) | Open issue; maintainers say GHA sccache is not ideal and discuss S3-backed sccache. Recent unit-test runs are still about 14-22m. | Runnable now in `Tool Cache Proof`; dispatch fresh first, then ordered rolling refs. |
+| 2 | TODO `josh-rust-container` | Rust/sccache inside build container | `josh-project/josh` / Christian Schilling | [`josh#2025`](https://github.com/josh-project/josh/pull/2025), [recent Rust run](https://github.com/josh-project/josh/actions/runs/26950392659) | PR merged 2026-06-04; pain is very current. Their build containers run with `--network none`, so they added an `aws-sigv4-proxy` sidecar on a shared Podman network for R2 sccache without exposing credentials. Recent Rust runs are often 50-100m. | Add a dedicated container-side proof, not the generic host Rust lane: build container can reach only the BoringCache proxy/sidecar, no direct internet or credentials. This should also inform the Docker `--tool-cache` story for Rust inside containers. |
+| 3 | `tiny-congress-rust` | Rust/sccache | `icook/tiny-congress` | [`tiny-congress#683`](https://github.com/icook/tiny-congress/pull/683), [recent CI run](https://github.com/icook/tiny-congress/actions/runs/24946974229) | The pain was real, but the team already added ARC parallelism plus Garage S3-backed sccache. Recent CI is about 7-8m. | Runnable now as a reference proof, not first-wave outreach. |
+| 4 | pending Turbo case | Turbo | `turborepo#863` commenters | [`turborepo#863`](https://github.com/vercel/turborepo/issues/863) | Long-running pain thread, but closed as completed on 2026-03-30 after Turbo added `cacheMaxAge`/`cacheMaxSize`; later comments are not clearly BoringCache onboarding leads. | Keep for content/fan-out, not a first runnable customer proof until we identify an active repo with current CI cache restore/save pain. |
+| 5 | pending Gradle case | Gradle | `cloudshiftchris`, Kotest-shaped reusable workflow users | [`gradle/actions#316`](https://github.com/gradle/actions/issues/316) | Open issue; pain is Gradle User Home/cache-key collision in reusable workflows. BoringCache Gradle remote cache helps build outputs, but does not automatically fix GitHub's missing full job identity for dependency/User Home cache keys. | Keep as qualified lead; add a Gradle proof only when we model the reusable-workflow collision or find a repo where remote build cache is the direct bottleneck. |
+
+Tool-cache proof rules:
+
+- Add a runnable case only when the public pain is current and the BoringCache adapter directly addresses it.
+- Keep prospect proof lanes smaller than canonical benchmarks: one pinned command, fresh/rolling refs, and artifacts using the benchmark JSON/Markdown writer.
+- Do not claim we fix workaround-specific infrastructure unless the proof models that shape. Josh is a good fit for BoringCache's sidecar/proxy model, but the proof must model Podman/build-container networking instead of host-side sccache.
+- Use existing benchmark repos as product-readiness anchors, but do not add benchmark repos themselves as prospects.
 
 ## Outreach Order
 
 1. Phentrieve after fresh + rolling proof lands: lead with "registry cache helped, but the slow run still spent 12m in API build/push."
 2. Cardstack after a clean fresh/rolling run: lead with "cache export should not be slower than rerunning pnpm fetch."
 3. Aranya: lead with their own S3-backed sccache comments; offer a focused sccache proof, not Docker.
-4. Josh: content-led, because the PR already expresses the workaround in detail.
+4. Josh: strong follow-up after a container-side proof exists; lead with the no-internet build-container sidecar fit.
 5. Tiny Congress: content/reference more than direct first-wave outreach.
