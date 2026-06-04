@@ -40,7 +40,7 @@ jobs:
       BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
       BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
       BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
-      BENCHMARK_WORKSPACE: boringcache/tool-cache-proof
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
       CACHE_LANE: ${{ inputs.cache_lane }}
     steps:
       - name: Checkout proof repo
@@ -119,6 +119,8 @@ jobs:
 
       - name: Run case setup
         env:
+          SOURCE_PATH: ${{ steps.case.outputs.source_path }}
+          TOOL_WORKING_DIRECTORY: ${{ steps.case.outputs.working_directory }}
           TOOL_SETUP_APT_PACKAGES: ${{ steps.case.outputs.setup_apt_packages }}
           TOOL_SETUP_COMMANDS: ${{ steps.case.outputs.setup_commands }}
         run: ./scripts/run-tool-case-setup.sh
