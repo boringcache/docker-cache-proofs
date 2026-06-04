@@ -4,6 +4,7 @@
   "adapter": "rust-sccache-container",
   "source": {
     "repo": "josh-project/josh",
+    "fetch_depth": 0,
     "pain_url": "https://github.com/josh-project/josh/pull/2025",
     "workflow_url": "https://github.com/josh-project/josh/actions/workflows/rust.yml",
     "evidence_run": "https://github.com/josh-project/josh/actions/runs/26955558243",
