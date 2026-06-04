@@ -1,0 +1,43 @@
+{
+  "id": "kvrocks-cpp-sccache",
+  "name": "Apache Kvrocks C++ compiler-cache proof",
+  "adapter": "cpp-sccache",
+  "source": {
+    "repo": "apache/kvrocks",
+    "pain_url": "https://github.com/apache/kvrocks/issues/2642",
+    "workflow_url": "https://github.com/apache/kvrocks/actions/workflows/kvrocks.yaml",
+    "evidence_run": "https://github.com/apache/kvrocks/actions/runs/26924643510",
+    "readiness": "multi-tool-candidate"
+  },
+  "refs": {
+    "main": "1f8257586dc9fd48138cea7b5c06d291858741b8"
+  },
+  "tool": {
+    "working_directory": ".",
+    "measured_command": "export NPROC=\"${NPROC:-$(nproc)}\"\nexport PATH=\"$PATH:$HOME/local/bin\"\nexport CC=\"sccache cc\"\nexport CXX=\"sccache c++\"\n./x.py build -j\"$NPROC\" --unittest --compiler gcc -D CMAKE_C_COMPILER_LAUNCHER=sccache -D CMAKE_CXX_COMPILER_LAUNCHER=sccache --dep-dir build-deps\n./x.py test cpp\n./x.py test go build -parallel 2",
+    "setup_apt_packages": [
+      "ninja-build",
+      "build-essential",
+      "autoconf",
+      "cmake",
+      "libtool",
+      "python3",
+      "python3-pip",
+      "libssl-dev",
+      "curl",
+      "wget",
+      "ca-certificates"
+    ],
+    "setup_commands": [
+      "export NPROC=\"${NPROC:-$(nproc)}\"; curl -fsSLO https://download.redis.io/releases/redis-6.2.14.tar.gz; tar -xzf redis-6.2.14.tar.gz; mkdir -p \"$HOME/local/bin\"; (cd redis-6.2.14 && CC=cc CXX=c++ BUILD_TLS=yes make -j\"$NPROC\" redis-cli redis-server && mv src/redis-cli src/redis-server \"$HOME/local/bin/\")",
+      "CC=cc CXX=c++ ./x.py fetch-deps build-deps",
+      "CC=cc CXX=c++ ./x.py fetch-deps build-deps -D ENABLE_LUAJIT=OFF"
+    ],
+    "notes": "Kvrocks is primarily C++. The public issue starts with slow Go tests, but active comments call out compilation/building and third-party C++ dependencies as a large CI cost. This proof measures the representative Ubuntu GCC build, C++ unit tests, and Go integration cases while routing C/C++ compilation through the BoringCache-backed sccache proxy. Go integration runtime is expected to remain as the honest tail."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true,
+    "timeout_minutes": 180
+  }
+}
