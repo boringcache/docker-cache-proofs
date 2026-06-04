@@ -13,6 +13,7 @@ on:
           - aranya-rust
           - josh-rust-container
           - tiny-congress-rust
+          - z3wire-bazel-devcontainer
       ref_key:
         description: Pinned case ref
         required: true
@@ -54,23 +55,23 @@ jobs:
         id: case
         run: ./scripts/emit-tool-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
 
-      - name: Guard supported adapter
+      - name: Skip non-Rust adapter
         if: steps.case.outputs.adapter != 'rust-sccache' && steps.case.outputs.adapter != 'rust-sccache-container'
-        run: |
-          echo "Unsupported adapter for Tool Cache Proof: ${{ steps.case.outputs.adapter }}" >&2
-          exit 1
+        run: echo "Rust/sccache job skipped for adapter ${{ steps.case.outputs.adapter }}"
 
       - name: Free disk space
-        if: steps.case.outputs.free_disk_space == 'true'
+        if: (steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container') && steps.case.outputs.free_disk_space == 'true'
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/share/swift /usr/local/.ghcup
           sudo docker system prune --all --volumes --force
           df -h /
 
       - name: Prepare pinned source tree
+        if: steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container'
         run: ./scripts/prepare-tool-case-source.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
 
       - name: Prepare benchmark scope
+        if: steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container'
         id: scope
         run: |
           set -euo pipefail
@@ -87,6 +88,7 @@ jobs:
           echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Validate BoringCache secrets
+        if: steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container'
         env:
           BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
           BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
@@ -96,6 +98,7 @@ jobs:
           [[ -n "${BORINGCACHE_SAVE_TOKEN}" ]] || { echo "Missing BORINGCACHE_SAVE_TOKEN secret" >&2; exit 1; }
 
       - name: Configure boringcache/one for Rust sccache
+        if: steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container'
         id: bc
         uses: boringcache/one@v1
         with:
@@ -119,6 +122,7 @@ jobs:
           BORINGCACHE_PROXY_METADATA_HINTS: benchmark=${{ steps.case.outputs.benchmark_id }},phase=${{ inputs.cache_lane == 'rolling' && 'commit' || 'cold' }},adapter=sccache
 
       - name: Run case setup
+        if: steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container'
         env:
           SOURCE_PATH: ${{ steps.case.outputs.source_path }}
           TOOL_WORKING_DIRECTORY: ${{ steps.case.outputs.working_directory }}
@@ -127,6 +131,7 @@ jobs:
         run: ./scripts/run-tool-case-setup.sh
 
       - name: Run measured Rust/sccache command
+        if: steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container'
         id: measured
         env:
           SOURCE_PATH: ${{ steps.case.outputs.source_path }}
@@ -150,7 +155,7 @@ jobs:
           exit "$status"
 
       - name: Write benchmark artifacts
-        if: always()
+        if: always() && (steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container')
         run: |
           set -euo pipefail
           mkdir -p benchmark-results
@@ -191,7 +196,7 @@ jobs:
             "${native_tool_args[@]}"
 
       - name: Upload benchmark results
-        if: always()
+        if: always() && (steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container')
         uses: actions/upload-artifact@v6
         with:
           name: benchmark-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
@@ -199,7 +204,205 @@ jobs:
           if-no-files-found: error
 
       - name: Upload native tool stats
-        if: always()
+        if: always() && (steps.case.outputs.adapter == 'rust-sccache' || steps.case.outputs.adapter == 'rust-sccache-container')
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-native-tool-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+          path: benchmark-native-tool/
+          if-no-files-found: ignore
+
+  boringcache-bazel-devcontainer:
+    name: BC / Bazel devcontainer
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Resolve tool case
+        id: case
+        run: ./scripts/emit-tool-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Skip non-Bazel adapter
+        if: steps.case.outputs.adapter != 'bazel-devcontainer'
+        run: echo "Bazel devcontainer job skipped for adapter ${{ steps.case.outputs.adapter }}"
+
+      - name: Free disk space
+        if: steps.case.outputs.adapter == 'bazel-devcontainer' && steps.case.outputs.free_disk_space == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune --all --volumes --force
+          df -h /
+
+      - name: Prepare pinned source tree
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        run: ./scripts/prepare-tool-case-source.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Prepare benchmark scope
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        id: scope
+        run: |
+          set -euo pipefail
+          ref_slug="$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9._-' '-')"
+          ref_slug="${ref_slug#-}"
+          ref_slug="${ref_slug%-}"
+          ref_slug="${ref_slug:-main}"
+          if [[ "${CACHE_LANE}" == "rolling" ]]; then
+            cache_tag="${{ steps.case.outputs.cache_id }}-rolling-${ref_slug}-${{ inputs.case_id }}"
+          else
+            cache_tag="${{ steps.case.outputs.cache_id }}-run-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          fi
+          echo "cache_tag=${cache_tag}" >> "$GITHUB_OUTPUT"
+          echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate BoringCache secrets
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        env:
+          BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
+          BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "${BORINGCACHE_RESTORE_TOKEN}" ]] || { echo "Missing BORINGCACHE_RESTORE_TOKEN secret" >&2; exit 1; }
+          [[ -n "${BORINGCACHE_SAVE_TOKEN}" ]] || { echo "Missing BORINGCACHE_SAVE_TOKEN secret" >&2; exit 1; }
+
+      - name: Configure boringcache/one for Bazel
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        id: bc
+        uses: boringcache/one@v1
+        with:
+          setup: none
+          mode: bazel
+          workspace: ${{ env.BENCHMARK_WORKSPACE }}
+          working-directory: ${{ steps.case.outputs.source_path }}/${{ steps.case.outputs.working_directory }}
+          cache-tag: ${{ steps.scope.outputs.cache_tag }}
+          cache-runtime: false
+          no-platform: true
+          force: ${{ inputs.cache_lane == 'rolling' }}
+          proxy-no-git: true
+          proxy-no-platform: true
+          proxy-port: 5000
+          verbose: true
+        env:
+          BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
+          BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
+          BORINGCACHE_PROXY_METADATA_HINTS: benchmark=${{ steps.case.outputs.benchmark_id }},phase=${{ inputs.cache_lane == 'rolling' && 'commit' || 'cold' }},adapter=bazel
+
+      - name: Run case setup
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        env:
+          SOURCE_PATH: ${{ steps.case.outputs.source_path }}
+          TOOL_WORKING_DIRECTORY: ${{ steps.case.outputs.working_directory }}
+          TOOL_SETUP_APT_PACKAGES: ${{ steps.case.outputs.setup_apt_packages }}
+          TOOL_SETUP_COMMANDS: ${{ steps.case.outputs.setup_commands }}
+        run: ./scripts/run-tool-case-setup.sh
+
+      - name: Start measured Bazel command
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        id: measured_start
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Run Bazel build inside devcontainer
+        if: steps.case.outputs.adapter == 'bazel-devcontainer'
+        id: bazel_build
+        continue-on-error: true
+        uses: devcontainers/ci@v0.3
+        with:
+          cacheFrom: ghcr.io/qobilidop/z3wire-dev
+          push: never
+          runCmd: bash -lc 'bazel build --remote_cache=http://127.0.0.1:${{ steps.bc.outputs.proxy-port }} --bes_backend= --bes_results_url= //...'
+          subFolder: ${{ steps.case.outputs.source_path }}/${{ steps.case.outputs.working_directory }}
+
+      - name: Run Bazel test inside devcontainer
+        if: steps.case.outputs.adapter == 'bazel-devcontainer' && steps.bazel_build.outcome == 'success'
+        id: bazel_test
+        continue-on-error: true
+        uses: devcontainers/ci@v0.3
+        with:
+          cacheFrom: ghcr.io/qobilidop/z3wire-dev
+          push: never
+          runCmd: bash -lc 'bazel test --remote_cache=http://127.0.0.1:${{ steps.bc.outputs.proxy-port }} --bes_backend= --bes_results_url= //...'
+          subFolder: ${{ steps.case.outputs.source_path }}/${{ steps.case.outputs.working_directory }}
+
+      - name: Finalize measured Bazel command
+        if: always() && steps.case.outputs.adapter == 'bazel-devcontainer'
+        id: measured
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-native-tool
+          build_status="${{ steps.bazel_build.outcome }}"
+          test_status="${{ steps.bazel_test.outcome }}"
+          if [[ "$build_status" == "success" && "$test_status" == "success" ]]; then
+            status=0
+          else
+            status=1
+          fi
+          started_at="${{ steps.measured_start.outputs.started_at }}"
+          started_at="${started_at:-$(date +%s)}"
+          finished_at="$(date +%s)"
+          build_seconds="$((finished_at - started_at))"
+          printf 'build_status=%s\n' "$build_status" > benchmark-native-tool/bazel-devcontainer-status.env
+          printf 'test_status=%s\n' "$test_status" >> benchmark-native-tool/bazel-devcontainer-status.env
+          printf 'build_seconds=%s\n' "$build_seconds" >> benchmark-native-tool/bazel-devcontainer-status.env
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "build_seconds=${build_seconds}" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Write benchmark artifacts
+        if: always() && steps.case.outputs.adapter == 'bazel-devcontainer'
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results
+          started_at="${{ steps.scope.outputs.started_at }}"
+          started_at="${started_at:-$(date +%s)}"
+          cold_seconds="${{ steps.measured.outputs.build_seconds }}"
+          cold_build_seconds="${{ steps.measured.outputs.build_seconds }}"
+          if [[ -z "$cold_seconds" ]]; then
+            cold_seconds="$(($(date +%s) - started_at))"
+          fi
+          cold_build_seconds="${cold_build_seconds:-0}"
+          save_result="skipped-build-failed"
+          if [[ "${{ steps.measured.outputs.status }}" == "0" ]]; then
+            save_result="attempted"
+          fi
+          ./scripts/write-benchmark-artifacts.sh \
+            --benchmark "${{ steps.case.outputs.benchmark_id }}" \
+            --strategy boringcache \
+            --lane "${{ inputs.cache_lane }}" \
+            --project-repo "${{ steps.case.outputs.project_repo }}" \
+            --project-ref "${{ steps.case.outputs.project_ref }}" \
+            --cold-seconds "$cold_seconds" \
+            --cold-build-seconds "$cold_build_seconds" \
+            --cache-storage-bytes "0" \
+            --cache-storage-source "not-probed" \
+            --hit-behavior-note "Bazel/devcontainer prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}." \
+            --workspace "${BENCHMARK_WORKSPACE}" \
+            --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
+            --mode bazel \
+            --adapter bazel \
+            --restore-result "${{ steps.bc.outputs.cache-hit }}" \
+            --save-result "$save_result" \
+            --output-dir benchmark-results
+
+      - name: Upload benchmark results
+        if: always() && steps.case.outputs.adapter == 'bazel-devcontainer'
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+          path: benchmark-results/
+          if-no-files-found: error
+
+      - name: Upload native tool status
+        if: always() && steps.case.outputs.adapter == 'bazel-devcontainer'
         uses: actions/upload-artifact@v6
         with:
           name: benchmark-native-tool-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
