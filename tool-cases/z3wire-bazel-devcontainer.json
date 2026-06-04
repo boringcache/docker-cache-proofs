@@ -1,0 +1,28 @@
+{
+  "id": "z3wire-bazel-devcontainer",
+  "name": "Z3Wire Bazel devcontainer proof",
+  "adapter": "bazel-devcontainer",
+  "source": {
+    "repo": "qobilidop/z3wire",
+    "pain_url": "https://github.com/qobilidop/z3wire/issues/28",
+    "workflow_url": "https://github.com/qobilidop/z3wire/actions/workflows/bazel.yml",
+    "evidence_run": "https://github.com/qobilidop/z3wire/actions/runs/26781896102",
+    "readiness": "diverse-bazel-devcontainer"
+  },
+  "refs": {
+    "main": "bc03a5aa52a3e67159e59311de97b94802644991"
+  },
+  "tool": {
+    "working_directory": ".",
+    "measured_command": "bazel build //... && bazel test //...",
+    "setup_commands": [
+      "bash \"$GITHUB_WORKSPACE/scripts/prepare-z3wire-bazel-source.sh\""
+    ],
+    "notes": "Z3Wire runs Bazel build/test through devcontainers/ci with a devcontainer-mounted Bazel cache volume. This proof keeps that container shape and routes Bazel remote_cache to the BoringCache Bazel proxy through host networking."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true,
+    "timeout_minutes": 180
+  }
+}
