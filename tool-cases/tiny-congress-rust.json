@@ -19,7 +19,9 @@
     "working_directory": ".",
     "measured_command": "cargo test -p tinycongress-api --no-default-features",
     "setup_apt_packages": [],
-    "setup_commands": [],
+    "setup_commands": [
+      "docker build -t tc-postgres:local -f dockerfiles/Dockerfile.postgres dockerfiles/"
+    ],
     "notes": "Upstream PR already added Garage S3-backed sccache on ARC runners. This lane is useful as a reference proof, not a first outreach target."
   },
   "workflow": {
