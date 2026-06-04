@@ -10,8 +10,27 @@ if [[ -n "${TOOL_SETUP_APT_PACKAGES:-}" ]]; then
 fi
 
 if [[ -n "${TOOL_SETUP_COMMANDS:-}" ]]; then
+  setup_workdir=""
+  if [[ -n "${SOURCE_PATH:-}" ]]; then
+    working_directory="${TOOL_WORKING_DIRECTORY:-.}"
+    if [[ "$working_directory" == "." ]]; then
+      setup_workdir="${SOURCE_PATH%/}"
+    else
+      setup_workdir="${SOURCE_PATH%/}/${working_directory#./}"
+    fi
+
+    if [[ ! -d "$setup_workdir" ]]; then
+      echo "Missing setup working directory: $setup_workdir" >&2
+      exit 1
+    fi
+  fi
+
   while IFS= read -r setup_command; do
     [[ -n "$setup_command" ]] || continue
-    bash -euo pipefail -c "$setup_command"
+    if [[ -n "$setup_workdir" ]]; then
+      (cd "$setup_workdir" && bash -euo pipefail -c "$setup_command")
+    else
+      bash -euo pipefail -c "$setup_command"
+    fi
   done <<< "$TOOL_SETUP_COMMANDS"
 fi

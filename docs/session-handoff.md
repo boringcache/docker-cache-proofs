@@ -22,6 +22,17 @@ The repo now has a `Tool Cache Proof` workflow for prospect-shaped non-Docker pa
 | `aranya-rust` | Rust/sccache | https://github.com/aranya-project/aranya/issues/135 | First pitch-ready tool proof. Issue is open; maintainers discuss GHA sccache pain and S3-backed sccache. Recent unit-test runs are roughly 14-22m. |
 | `tiny-congress-rust` | Rust/sccache | https://github.com/icook/tiny-congress/pull/683 | Reference proof, not first outreach. They already added ARC parallelism plus Garage S3-backed sccache; recent CI is around 7-8m. |
 
+Workspace contract:
+
+- The live BoringCache workspace is `boringcache/docker-cache-proof` singular: https://boringcache.com/boringcache/docker-cache-proof.
+- The GitHub repo remains `boringcache/docker-cache-proofs` plural.
+- Tool proof run https://github.com/boringcache/docker-cache-proofs/actions/runs/26956862006 used the wrong workspace, `boringcache/tool-cache-proof`. The measured Aranya command ran and emitted sccache stats, but save failed with `Resource not found` on `/v2/workspaces/boringcache/tool-cache-proof/caches`, then proxy shutdown timed out after 180s with 1329 pending entries. Treat that run as cold compile evidence only; do not use it for warm/rolling cache-read claims.
+
+Current rerun blockers/fixes:
+
+- Aranya: re-run fresh after the workspace fix, then only dispatch rolling after a fresh save succeeds.
+- Tiny Congress: initial command reached Rust/test work, then failed because `tc-postgres:local` was missing. The manifest now builds the local image during setup, and setup commands now run from the source working directory instead of the proof repo.
+
 Qualified but not wired:
 
 - Josh: https://github.com/josh-project/josh/pull/2025 is very current and strong, and it is plausibly a good BoringCache sidecar/proxy fit. The real workload is Rust builds inside no-internet build containers via an R2 sidecar proxy, so do not run the generic host-side sccache proof. TODO: add a `josh-rust-container` lane that models Podman/build-container networking, where the build container can reach only a BoringCache proxy/sidecar and never receives cache credentials. Fold this into the Docker `--tool-cache` story for Rust inside containers.

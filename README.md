@@ -12,6 +12,8 @@ This repo is intentionally evidence-first:
 
 The GitHub repository is currently `boringcache/docker-cache-proofs`; the aligned slug would be `boringcache/painful-builds`. The product-facing name in this repo is now `Painful Builds` so it can become an adapter-wide proof surface instead of a Docker-only bucket.
 
+The live BoringCache workspace used by both proof workflows is `boringcache/docker-cache-proof` singular. Keep that slug aligned until a future `painful-builds` workspace is provisioned.
+
 ## Docker Cases
 
 | Case | Public pain | Proof source |
