@@ -21,7 +21,8 @@
     "setup_apt_packages": [
       "patchelf",
       "doxygen",
-      "protobuf-compiler"
+      "protobuf-compiler",
+      "libprotobuf-dev"
     ],
     "setup_commands": [
       "RUSTC_WRAPPER= cargo install --version '0.37.23' --locked cargo-make"

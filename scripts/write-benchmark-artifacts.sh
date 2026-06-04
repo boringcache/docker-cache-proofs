@@ -1543,7 +1543,13 @@ if [[ "$lane" == "rolling" && "$strategy" == "boringcache" ]]; then
   fi
 fi
 
-if [[ "$strategy" == "boringcache" && "$lane" == "fresh" && -n "$warm1_seconds" && -n "$cache_import_status" && "$cache_import_status" != "ok" ]]; then
+if [[ "$save_result" == "skipped-build-failed" ]]; then
+  sample_valid=false
+  reporting_mode="invalid"
+  reporting_reason="measured_build_failed"
+  reporting_note="The measured build command failed; timings and native-tool stats are diagnostic only."
+  validity_reason="measured_build_failed"
+elif [[ "$strategy" == "boringcache" && "$lane" == "fresh" && -n "$warm1_seconds" && -n "$cache_import_status" && "$cache_import_status" != "ok" ]]; then
   warm_rerun_succeeded=false
   sample_valid=false
   reporting_mode="invalid"
