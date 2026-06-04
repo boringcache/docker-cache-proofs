@@ -4,23 +4,20 @@ Use this note when debugging native BuildKit publish, materialize, or save behav
 
 ## Two Paths
 
-There are two native-looking Docker paths, and they answer different questions.
+There are two native-looking BuildKit paths, and they answer different questions.
 
 ### Product path
 
-`boringcache docker --backend native` and `boringcache docker --backend auto` are the user-facing product path. This path starts the publisher as a separate sidecar container.
+`boringcache docker --backend native` and `boringcache docker --backend auto` are the user-facing product path. This path uses the same CLI process that starts the proxy to publish native BuildKit cache, and only when that process can read the BuildKit root.
 
-The sidecar image is version matched:
+Eligibility is deliberately strict:
 
-```text
-ghcr.io/boringcache/base:bookworm-v<CARGO_PKG_VERSION>
-```
+- host-readable BuildKit roots can use in-process native publish;
+- Docker-managed volumes, VM-only paths, root-only paths, and remote Docker contexts are not native-eligible;
+- `--backend auto` falls back to the registry/non-native path when native is not eligible;
+- explicit `--backend native` fails with the unreadable-root reason.
 
-`BORINGCACHE_NATIVE_SIDECAR_IMAGE` can override it.
-
-If the matching image has not been published, the sidecar cannot start. With `--backend auto`, the product path can fall back to the registry/non-native path. That is a packaging or rollout signal, not proof that the native BuildKit scheduler or exporter is broken.
-
-Use this path when testing customer-facing native/auto UX, sidecar packaging, fallback behavior, and image release alignment.
+Use this path when testing customer-facing native/auto UX, builder discovery, registry fallback behavior, and Docker-visible proxy endpoint handling. A registry fallback from a Docker-volume builder is expected product behavior, not proof that the native BuildKit scheduler or exporter is broken.
 
 ### Benchmark harness path
 
@@ -30,7 +27,7 @@ Use this path when testing customer-facing native/auto UX, sidecar packaging, fa
 boringcache buildkit --backend native --buildkit-cache-root /cache -- buildctl ...
 ```
 
-The publisher runs in-process with the mounted `boringcache` binary. It does not pull `ghcr.io/boringcache/base:bookworm-v...`, so a missing sidecar image does not invalidate this path.
+The publisher runs in-process with the mounted `boringcache` binary. It does not pull another BoringCache image.
 
 Use this path when investigating native benchmark behavior: online materialization, online publish scheduling, final export backlog, final save time, and OCI proxy publish behavior.
 

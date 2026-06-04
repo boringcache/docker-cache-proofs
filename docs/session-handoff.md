@@ -91,7 +91,7 @@ Current hypothesis:
 
 Relevant BoringCache CLI files live under `/Users/gaurav/boringcache/web/cli`:
 
-- `src/commands/internal/buildkit_cache.rs`: `online_publish_cache`, `OnlineSidecarResourceLane`, final `export_materialized_image`.
+- `src/commands/internal/buildkit_cache.rs`: `online_publish_cache`, `OnlinePublisherResourceLane`, final `export_materialized_image`.
 - `src/commands/internal/buildkit_export_inspect.rs`: `materialize_missing_overlay_diffs` builds the Rayon worker pool and logs `materialize_jobs`.
 - `src/commands/adapters/command/native_buildkit.rs`: default requested materialize jobs is 8 and is passed to the internal command.
 
