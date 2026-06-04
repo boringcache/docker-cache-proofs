@@ -1,6 +1,6 @@
 name: Docker Cache Proof
 run-name: >-
-  ${{ format('{0} | {1} | {2} | output={3}{4}', inputs.case_id, inputs.ref_key, inputs.cache_lane, inputs.build_output, inputs.include_gha_reference && ' | +GHA' || '') }}
+  ${{ format('{0} | {1} | {2} | output={3}', inputs.case_id, inputs.ref_key, inputs.cache_lane, inputs.build_output) }}
 
 on:
   workflow_dispatch:
@@ -35,11 +35,6 @@ on:
           - none
           - load
           - local-registry
-      include_gha_reference:
-        description: Also run a GitHub Actions Cache reference lane
-        required: true
-        type: boolean
-        default: false
 permissions:
   contents: read
   actions: write
@@ -153,54 +148,6 @@ jobs:
           cache_lane: ${{ inputs.cache_lane }}
           benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-auto
           cache_id: ${{ needs.case.outputs.cache_id }}-auto
-          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
-          case_id: ${{ needs.case.outputs.case_id }}
-          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
-          project_repo: ${{ needs.case.outputs.project_repo }}
-          project_ref: ${{ needs.case.outputs.project_ref }}
-          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
-          docker_context: ${{ needs.case.outputs.docker_context }}
-          image_tag: ${{ needs.case.outputs.image_tag }}
-          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
-          build_output: ${{ inputs.build_output }}
-          runner_label: ${{ needs.case.outputs.runner_label }}
-          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
-          benchmark_workspace: boringcache/docker-cache-proof
-  github-actions-cache:
-    name: GHA
-    needs: case
-    if: ${{ inputs.include_gha_reference }}
-    runs-on: ${{ needs.case.outputs.runner_label }}
-    timeout-minutes: 180
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
-      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
-      CASE_ID: ${{ needs.case.outputs.case_id }}
-      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
-      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-gha
-      CACHE_ID: ${{ needs.case.outputs.cache_id }}-gha
-      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
-      CACHE_LANE: ${{ inputs.cache_lane }}
-      BUILDKIT_BACKEND: registry
-      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
-      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
-      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
-    steps:
-      - name: Checkout benchmark repo
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          submodules: false
-
-      - name: Run GitHub Actions Cache proof
-        uses: ./.github/actions/docker-case-benchmark
-        with:
-          strategy: actions-cache
-          buildkit_backend: registry
-          cache_lane: ${{ inputs.cache_lane }}
-          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-gha
-          cache_id: ${{ needs.case.outputs.cache_id }}-gha
           cache_scope_suffix: -${{ needs.case.outputs.case_id }}
           case_id: ${{ needs.case.outputs.case_id }}
           case_ref_key: ${{ needs.case.outputs.case_ref_key }}

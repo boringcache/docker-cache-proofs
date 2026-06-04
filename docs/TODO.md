@@ -2,7 +2,7 @@
 
 - [x] Scaffold public proof repo with benchmark-style scripts and pinned case manifests.
 - [x] Add BC OCI and BC auto workflow lanes from the existing Docker benchmark harness.
-- [x] Add optional GHA reference lane for apples-to-apples claims when we choose to pay the runtime.
+- [x] Keep GHA reference evidence in upstream links instead of mixing it into proof runs.
 - [x] Wire local registry push emulation for registry mode and auto mode with comparable output semantics.
 - [x] Add an ordered rolling-sequence dispatcher script for `main`, `rolling1`, `rolling2`, and `rolling3`.
 - [x] Add a prospect run-source collector for Docker and non-Docker lead buckets.

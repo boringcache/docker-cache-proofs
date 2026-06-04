@@ -6,7 +6,7 @@ This repo is intentionally evidence-first:
 
 - each case pins real upstream commits;
 - Docker workflows run BoringCache OCI registry mode and the BoringCache `auto` Docker backend, which keeps OCI restore semantics while using the native accelerator for cache save/export;
-- GitHub Actions Cache lanes are optional references because many upstreams already publish those numbers in their own runs;
+- GitHub Actions Cache references stay in the linked upstream evidence instead of sharing a proof run;
 - every case links the public pain signal separately from the proof run;
 - generated artifacts preserve the same benchmark JSON/Markdown shape used by the existing BoringCache benchmark repos.
 
@@ -26,7 +26,6 @@ Use the Docker lane in the `Docker Cache Proof` workflow with:
 
 - `cache_lane=fresh` for one cold build on the pinned commit;
 - `cache_lane=rolling` for one continuous-commit build on a stable case cache scope;
-- `include_gha_reference=false` unless we need an apples-to-apples reference in this repo;
 - `build_output=none`, `load`, or `local-registry` depending on the UX surface being measured.
 
 Fresh lanes may export cache for storage accounting, but they do not run a second build. Rolling lanes own prior-cache import/update evidence.
