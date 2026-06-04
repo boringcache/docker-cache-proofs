@@ -143,7 +143,7 @@
     },
     {
       "id": "vercel-ai-ci",
-      "bucket": "Turbo lead",
+      "bucket": "Turbo owner signal",
       "adapter": "Turbo",
       "label": "Vercel AI CI",
       "lead": "gr2m",
@@ -153,7 +153,7 @@
       "pain_url": "https://github.com/vercel/ai/issues/15393",
       "proof_url": "https://github.com/vercel/ai/actions/workflows/ci.yml",
       "source_url": "https://github.com/vercel/ai/issues/15393",
-      "notes": "Open issue says Turbo remote cache is blocked in test_matrix: 0/111 hits, all packages rebuild/retest, about 6.5m per matrix job."
+      "notes": "Open issue says Turbo remote cache is blocked in test_matrix: 0/111 hits, all packages rebuild/retest, about 6.5m per matrix job. Vercel owns Turborepo, so this is an owner/internal validation signal, not a normal outreach or onboarding prospect."
     },
     {
       "id": "memql-ci",
