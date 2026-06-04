@@ -1,0 +1,36 @@
+{
+  "id": "josh-rust-container",
+  "name": "Josh Rust container-side sccache proof",
+  "adapter": "rust-sccache-container",
+  "source": {
+    "repo": "josh-project/josh",
+    "pain_url": "https://github.com/josh-project/josh/pull/2025",
+    "workflow_url": "https://github.com/josh-project/josh/actions/workflows/rust.yml",
+    "evidence_run": "https://github.com/josh-project/josh/actions/runs/26955558243",
+    "readiness": "strategic-sidecar"
+  },
+  "refs": {
+    "main": "60f70ca5dec42623bce1db1a6d8a58b743ea515a",
+    "sidecar-pr": "53e9ce10b809c41c8e704fa538d00eded6d7ab1e"
+  },
+  "tool": {
+    "rust_toolchain": "1.95.0",
+    "working_directory": ".",
+    "measured_command": "bash \"$GITHUB_WORKSPACE/scripts/run-josh-container-proof.sh\"",
+    "sccache_stats_source": "command-output",
+    "setup_apt_packages": [
+      "socat"
+    ],
+    "setup_commands": [
+      "bash \"$GITHUB_WORKSPACE/scripts/prepare-josh-container-source.sh\"",
+      ".github/workflows/scripts/install-podman.sh",
+      "RUSTC_WRAPPER=sccache cargo build --release -p josh-cli"
+    ],
+    "notes": "Josh runs Rust build/test work inside Podman containers with no direct internet. This proof replaces their R2-signing sidecar with a BoringCache WebDAV sidecar and captures sccache stats from inside the build container."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true,
+    "timeout_minutes": 180
+  }
+}
