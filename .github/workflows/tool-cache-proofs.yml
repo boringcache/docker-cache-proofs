@@ -11,6 +11,7 @@ on:
         type: choice
         options:
           - aranya-rust
+          - josh-rust-container
           - tiny-congress-rust
       ref_key:
         description: Pinned case ref
@@ -54,7 +55,7 @@ jobs:
         run: ./scripts/emit-tool-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
 
       - name: Guard supported adapter
-        if: steps.case.outputs.adapter != 'rust-sccache'
+        if: steps.case.outputs.adapter != 'rust-sccache' && steps.case.outputs.adapter != 'rust-sccache-container'
         run: |
           echo "Unsupported adapter for Tool Cache Proof: ${{ steps.case.outputs.adapter }}" >&2
           exit 1
@@ -133,6 +134,7 @@ jobs:
           TOOL_BUILD_COMMAND: ${{ steps.case.outputs.measured_command }}
           BENCHMARK_METRICS_OUTPUT: ${{ runner.temp }}/tool-proof-metrics.env
           BENCHMARK_SCCACHE_STATS_FILE: benchmark-native-tool/sccache-stats.txt
+          BENCHMARK_SCCACHE_STATS_SOURCE: ${{ steps.case.outputs.sccache_stats_source }}
         run: |
           set +e
           ./scripts/run-rust-sccache-proof.sh
