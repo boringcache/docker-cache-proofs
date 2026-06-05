@@ -106,8 +106,10 @@ cat > "$source_dir/run-cargo-fetch-without-sccache.sh" <<'SH'
 #!/bin/sh
 set -e
 
-unset RUSTC_WRAPPER CARGO_BUILD_RUSTC_WRAPPER SCCACHE_WEBDAV_ENDPOINT SCCACHE_ENDPOINT
-cargo fetch --locked
+export RUSTC_WRAPPER=
+export CARGO_BUILD_RUSTC_WRAPPER=
+unset SCCACHE_WEBDAV_ENDPOINT SCCACHE_ENDPOINT
+cargo --config 'build.rustc-wrapper=""' fetch --locked
 SH
 
 test_ws="$source_dir/ws/test.josh"
