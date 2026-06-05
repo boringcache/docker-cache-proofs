@@ -18,6 +18,7 @@ fi
 
 project_repo="$(jq -er '.source.repo' "$case_file")"
 project_ref="$(jq -er --arg key "$ref_key" '.refs[$key]' "$case_file")"
+overlay_dockerfile="$(jq -r '.docker.overlay_dockerfile // ""' "$case_file")"
 source_dir="${repo_root}/.work/${case_id}/source"
 clone_url="https://github.com/${project_repo}.git"
 
@@ -34,10 +35,21 @@ if [[ "$actual_ref" != "$project_ref" ]]; then
   exit 1
 fi
 
+if [[ -n "$overlay_dockerfile" ]]; then
+  dockerfile_path="$(jq -er '.docker.dockerfile' "$case_file")"
+  overlay_source="${repo_root}/${overlay_dockerfile}"
+  overlay_target="${source_dir}/${dockerfile_path}"
+  if [[ ! -f "$overlay_source" ]]; then
+    echo "Missing Dockerfile overlay: ${overlay_source}" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$overlay_target")"
+  cp "$overlay_source" "$overlay_target"
+fi
+
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "source_path=.work/${case_id}/source"
     echo "project_ref=${actual_ref}"
   } >> "$GITHUB_OUTPUT"
 fi
-

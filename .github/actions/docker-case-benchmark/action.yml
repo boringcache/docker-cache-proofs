@@ -43,6 +43,10 @@ inputs:
   docker_build_extra_args:
     required: false
     default: ''
+  docker_tool_cache:
+    description: Comma- or newline-separated Docker tool-cache entries such as sccache:kvrocks-cpp. When set, the benchmark uses `boringcache docker --tool-cache` so the CLI can inject the BuildKit secret into the wrapped build.
+    required: false
+    default: ''
   build_output:
     description: Image output mode for UX parity. none measures cache-only build; local-registry will be wired once native push emulation is ready.
     required: false
@@ -156,7 +160,7 @@ runs:
       fi
     shell: bash
   - name: Configure boringcache/one for Docker
-    if: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' }}"
+    if: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && inputs.docker_tool_cache == '' }}"
     id: docker_cache
     uses: boringcache/one@v1
     with:
@@ -175,6 +179,13 @@ runs:
       BORINGCACHE_RESTORE_TOKEN: "${{ env.BORINGCACHE_RESTORE_TOKEN }}"
       BORINGCACHE_SAVE_TOKEN: "${{ env.BORINGCACHE_SAVE_TOKEN }}"
       BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-build-observability.jsonl"
+  - name: Set up Docker Buildx for tool-cache
+    if: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && inputs.docker_tool_cache != '' }}"
+    id: tool_cache_buildx
+    uses: docker/setup-buildx-action@v4
+    with:
+      driver-opts: |
+        network=host
   - name: Set up Docker Buildx
     if: "${{ inputs.strategy == 'actions-cache' }}"
     id: buildx
@@ -220,6 +231,7 @@ runs:
       BORINGCACHE_CACHE_UNREADABLE_FROM_REFS: "${{ steps.docker_cache.outputs.docker-cache-unreadable-from-refs }}"
       BORINGCACHE_DOCKER_PROMOTION_REFS: "${{ steps.docker_cache.outputs.docker-cache-promotion-refs }}"
       BUILDER: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && steps.docker_cache.outputs.buildx-name || inputs.strategy == 'actions-cache' && steps.buildx.outputs.name || '' }}"
+      TOOL_CACHE_BUILDER: "${{ steps.tool_cache_buildx.outputs.name }}"
       CACHE_FROM: "${{ steps.docker_cache.outputs.cache-from }}"
       CACHE_TO: "${{ steps.docker_cache.outputs.cache-to }}"
       CACHE_SCOPE: "${{ steps.scope.outputs.cache_scope }}"
@@ -231,6 +243,7 @@ runs:
       IMAGE_TAG: "${{ inputs.image_tag }}"
       DOCKERFILE_PATH: "${{ inputs.dockerfile_path }}"
       BENCHMARK_DOCKER_CONTEXT: "${{ inputs.docker_context }}"
+      DOCKER_TOOL_CACHE: "${{ inputs.docker_tool_cache }}"
       GITHUB_TOKEN: "${{ env.GITHUB_TOKEN }}"
     run: |
       set -euo pipefail
@@ -426,6 +439,13 @@ runs:
     with:
       name: benchmark-native-tool-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}-build
       path: benchmark-native-tool/native-tool.json
+      if-no-files-found: ignore
+  - name: Upload Docker tool-cache stats
+    if: "${{ inputs.strategy == 'boringcache' && inputs.docker_tool_cache != '' && always() }}"
+    uses: actions/upload-artifact@v6
+    with:
+      name: benchmark-native-tool-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+      path: benchmark-native-tool/
       if-no-files-found: ignore
   - name: Checkout benchmark repo helpers
     uses: actions/checkout@v6
@@ -634,6 +654,8 @@ runs:
       native_tool_args=()
       if [[ -s benchmark-native-tool/native-tool.json ]]; then
         native_tool_args=(--native-tool-evidence-json benchmark-native-tool/native-tool.json)
+      elif [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
+        native_tool_args=(--native-tool sccache --sccache-stats-file benchmark-native-tool/sccache-stats.txt)
       fi
 
       .benchmark-config/scripts/write-benchmark-artifacts.sh \
