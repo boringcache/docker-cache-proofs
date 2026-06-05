@@ -82,9 +82,20 @@ cat > "$source_dir/run-cargo-test-with-stats.sh" <<'SH'
 #!/bin/sh
 set +e
 
-unset SCCACHE_DIR
+if [ -z "${SCCACHE_WEBDAV_ENDPOINT:-}" ]; then
+  echo "Missing SCCACHE_WEBDAV_ENDPOINT; refusing to measure local sccache" >&2
+  exit 86
+fi
+
+export SCCACHE_DIR=/tmp/boringcache-sccache
+mkdir -p "$SCCACHE_DIR"
 sccache --stop-server >/dev/null 2>&1 || true
 sccache --zero-stats >/dev/null 2>&1 || true
+if ! sccache --show-stats | grep -qi '^Cache location[[:space:]].*webdav'; then
+  echo "Expected container sccache to use WebDAV endpoint $SCCACHE_WEBDAV_ENDPOINT" >&2
+  sccache --show-stats || true
+  exit 86
+fi
 cargo test --workspace --offline --locked
 status="$?"
 sccache --show-stats
