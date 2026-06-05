@@ -14,7 +14,6 @@ on:
           - wormhole-solana
           - cardstack-realm-server
           - dependabot-updater-core
-          - dependabot-go-modules
           - iggy-rust-server
           - kvrocks-docker
           - kvrocks-docker-sccache
