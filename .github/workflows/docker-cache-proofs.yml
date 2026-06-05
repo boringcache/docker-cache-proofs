@@ -112,8 +112,8 @@ jobs:
           runner_label: ${{ needs.case.outputs.runner_label }}
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
-  boringcache-auto:
-    name: BC auto
+  boringcache-native:
+    name: BC native
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -126,11 +126,11 @@ jobs:
       PROJECT_REF: ${{ needs.case.outputs.project_ref }}
       CASE_ID: ${{ needs.case.outputs.case_id }}
       CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
-      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-bc-auto
-      CACHE_ID: ${{ needs.case.outputs.cache_id }}-auto
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-bc-native
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}-native
       BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
       CACHE_LANE: ${{ inputs.cache_lane }}
-      BUILDKIT_BACKEND: auto
+      BUILDKIT_BACKEND: native
       CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
       DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
       BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
@@ -141,14 +141,14 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Run BoringCache Auto proof
+      - name: Run BoringCache native proof
         uses: ./.github/actions/docker-case-benchmark
         with:
           strategy: boringcache
-          buildkit_backend: auto
+          buildkit_backend: native
           cache_lane: ${{ inputs.cache_lane }}
-          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-auto
-          cache_id: ${{ needs.case.outputs.cache_id }}-auto
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-native
+          cache_id: ${{ needs.case.outputs.cache_id }}-native
           cache_scope_suffix: -${{ needs.case.outputs.case_id }}
           case_id: ${{ needs.case.outputs.case_id }}
           case_ref_key: ${{ needs.case.outputs.case_ref_key }}
