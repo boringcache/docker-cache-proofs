@@ -88,6 +88,7 @@ if [ -z "${SCCACHE_WEBDAV_ENDPOINT:-}" ]; then
 fi
 
 export SCCACHE_DIR=/tmp/boringcache-sccache
+export RUSTC_WRAPPER=sccache
 mkdir -p "$SCCACHE_DIR"
 sccache --stop-server >/dev/null 2>&1 || true
 sccache --zero-stats >/dev/null 2>&1 || true
@@ -132,4 +133,9 @@ fi
 if [[ -f "$fetch_ws" ]] && ! grep -q 'run-cargo-fetch-without-sccache.sh' "$fetch_ws"; then
   echo "Failed to patch Josh fetch workspace to run without sccache wrapper" >&2
   exit 1
+fi
+
+dev_local_dockerfile="$source_dir/images/dev-local/Dockerfile"
+if [[ -f "$dev_local_dockerfile" ]]; then
+  perl -0pi -e 's/^ENV RUSTC_WRAPPER=sccache\n//m; s/^ENV SCCACHE_DIR=\/opt\/cache\/sccache\n//m' "$dev_local_dockerfile"
 fi
