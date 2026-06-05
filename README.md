@@ -15,6 +15,7 @@ The GitHub repository is `boringcache/docker-cache-proofs`. The live BoringCache
 | `cardstack-realm-server` | Cardstack workflow/action notes say GHA cache transfer for large pnpm-fetch layers was slower than rerunning fetch, so they moved to ECR registry cache. | [Official deploy sample](https://github.com/cardstack/boxel/actions/runs/25861223646); BoringCache proof runs in this repo. |
 | `kvrocks-docker` | [Kvrocks CI optimization issue](https://github.com/apache/kvrocks/issues/2642): active discussion says native build/compile time is a large CI cost; the official workflow also builds and tests Docker images. | [Official CI sample](https://github.com/apache/kvrocks/actions/runs/26924643510); BoringCache proof runs in this repo. |
 | `kvrocks-docker-sccache` | Same Kvrocks pain, using a proof Dockerfile overlay that keeps the upstream image shape while opting the build stage into BoringCache-backed `sccache`. | [Official CI sample](https://github.com/apache/kvrocks/actions/runs/26924643510); BoringCache proof runs in this repo. |
+| `nmisp-nightly` | [nmisp nightly test image issue](https://github.com/kangwonlee/nmisp/issues/370): the nightly conda/ML image build was profiled at ~24m versus ~7m for the 2023.09 variant. | [Official slow nightly image job](https://github.com/kangwonlee/nmisp/actions/runs/24956177996/job/73074709808); BoringCache proof runs in this repo. |
 
 ## Tool Cache Cases
 

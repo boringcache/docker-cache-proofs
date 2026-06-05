@@ -15,6 +15,7 @@ on:
           - cardstack-realm-server
           - kvrocks-docker
           - kvrocks-docker-sccache
+          - nmisp-nightly
       ref_key:
         description: Pinned case ref
         required: true
