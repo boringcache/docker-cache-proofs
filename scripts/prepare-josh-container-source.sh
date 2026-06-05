@@ -115,7 +115,7 @@ fi
 
 fetch_ws="$source_dir/ws/fetch.josh"
 if [[ -f "$fetch_ws" ]] && ! grep -q 'RUSTC_WRAPPER' "$fetch_ws"; then
-  perl -0pi -e 's{:\$cmd="cargo fetch --locked"}{:\$cmd="env -u RUSTC_WRAPPER -u SCCACHE_WEBDAV_ENDPOINT -u SCCACHE_ENDPOINT cargo fetch --locked"}' "$fetch_ws"
+  perl -0pi -e 's{:\$cmd="cargo fetch --locked"}{:\$cmd="unset RUSTC_WRAPPER SCCACHE_WEBDAV_ENDPOINT SCCACHE_ENDPOINT; cargo fetch --locked"}' "$fetch_ws"
 fi
 
 if [[ -f "$fetch_ws" ]] && ! grep -q 'RUSTC_WRAPPER' "$fetch_ws"; then
