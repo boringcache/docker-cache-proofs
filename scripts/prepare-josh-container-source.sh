@@ -82,6 +82,9 @@ cat > "$source_dir/run-cargo-test-with-stats.sh" <<'SH'
 #!/bin/sh
 set +e
 
+unset SCCACHE_DIR
+sccache --stop-server >/dev/null 2>&1 || true
+sccache --zero-stats >/dev/null 2>&1 || true
 cargo test --workspace --offline --locked
 status="$?"
 sccache --show-stats
