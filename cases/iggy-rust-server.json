@@ -1,0 +1,30 @@
+{
+  "id": "iggy-rust-server",
+  "name": "Apache Iggy server image",
+  "source": {
+    "repo": "apache/iggy",
+    "pain_url": "https://github.com/apache/iggy/commit/57fbe04a3191d0295a2ff492b447c0b86ced862b",
+    "evidence_run": "https://github.com/apache/iggy/actions/runs/24415263274",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "refs": {
+    "main": "57fbe04a3191d0295a2ff492b447c0b86ced862b",
+    "rolling1": "dbeab0cf22c74447a90ae8ef0d4c6378dd370d22",
+    "rolling2": "da75706e337f35c89e5bccd90a3e384042918104",
+    "rolling3": "10ca4306193d92973c37f4e048f20b4397903f40"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "core/server/Dockerfile",
+    "image": "iggy-rust-server",
+    "platform": "linux/amd64",
+    "build_args": [
+      "IGGY_CI_BUILD=true"
+    ],
+    "original_cache": "type=registry,ref=apache/iggy:buildcache-amd64 plus scoped type=gha BuildKit caches"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true
+  }
+}
