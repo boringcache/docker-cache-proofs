@@ -5,8 +5,18 @@ log_path="${1:-}"
 phase="${2:-gradle}"
 
 if [[ -z "$log_path" || ! -f "$log_path" ]]; then
-  echo "Gradle log not found: ${log_path}" >&2
-  exit 1
+  echo "::warning::Gradle log not found: ${log_path}"
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    {
+      echo "summary="
+      echo "actionable_tasks="
+      echo "executed_tasks="
+      echo "from_cache_tasks="
+      echo "up_to_date_tasks="
+      echo "warning=${phase}_log_missing"
+    } >> "$GITHUB_OUTPUT"
+  fi
+  exit 0
 fi
 
 summary=""
