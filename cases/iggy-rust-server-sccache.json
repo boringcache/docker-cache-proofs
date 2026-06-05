@@ -1,6 +1,6 @@
 {
-  "id": "iggy-rust-server",
-  "name": "Apache Iggy server image",
+  "id": "iggy-rust-server-sccache",
+  "name": "Apache Iggy server image with container-side sccache",
   "source": {
     "repo": "apache/iggy",
     "pain_url": "https://github.com/apache/iggy/commit/57fbe04a3191d0295a2ff492b447c0b86ced862b",
@@ -16,13 +16,15 @@
   },
   "docker": {
     "context": ".",
-    "dockerfile": "core/server/Dockerfile",
-    "image": "iggy-rust-server",
+    "dockerfile": "core/server/Dockerfile.boringcache-sccache",
+    "overlay_dockerfile": "overlays/iggy-rust-server-sccache/Dockerfile",
+    "image": "iggy-rust-server-sccache",
     "platform": "linux/amd64",
     "build_args": [
       "IGGY_CI_BUILD=true"
     ],
-    "original_cache": "type=registry,ref=apache/iggy:buildcache-amd64 plus scoped type=gha BuildKit caches"
+    "original_cache": "type=registry,ref=apache/iggy:buildcache-amd64 plus scoped type=gha BuildKit caches",
+    "tool_cache": "sccache:{CACHE_SCOPE}-sccache"
   },
   "workflow": {
     "runner_label": "ubuntu-latest",
