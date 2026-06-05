@@ -1,0 +1,54 @@
+{
+  "id": "therock-prim-sccache",
+  "name": "ROCm TheRock rocPRIM compiler-cache proof",
+  "adapter": "cpp-sccache",
+  "source": {
+    "repo": "ROCm/TheRock",
+    "fetch_depth": 1,
+    "pain_url": "https://github.com/ROCm/TheRock/issues/5009",
+    "workflow_url": "https://github.com/ROCm/TheRock/actions/workflows/ci.yml",
+    "evidence_run": "https://github.com/ROCm/TheRock/actions/runs/25113555356/job/73647822792",
+    "readiness": "current-rocm-compiler-cache-pain"
+  },
+  "refs": {
+    "main": "f01410f59da6fa492e72c9a6199c30e3b7ba54d0",
+    "rolling1": "7acb34f6d8972a840fa067f6b4634b00ad46fa00",
+    "rolling2": "91df6212998373de7bdbe227f0ca4f5feec081a6",
+    "rolling3": "4be597ff149ea67c11b6036480f96d90f64365e1"
+  },
+  "tool": {
+    "working_directory": ".",
+    "measured_command": "export NPROC=\"${NPROC:-2}\"\n. .venv/bin/activate\ncmake -S . -B build-bc-sccache -G Ninja -DTHEROCK_AMDGPU_FAMILIES=gfx110X-all -DTHEROCK_ENABLE_ALL=OFF -DTHEROCK_ENABLE_PRIM=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache\ncmake --build build-bc-sccache --parallel \"$NPROC\"",
+    "setup_apt_packages": [
+      "gfortran",
+      "git",
+      "ninja-build",
+      "cmake",
+      "g++",
+      "pkg-config",
+      "xxd",
+      "automake",
+      "libtool",
+      "python3-venv",
+      "python3-dev",
+      "libegl1-mesa-dev",
+      "texinfo",
+      "bison",
+      "flex",
+      "curl",
+      "make"
+    ],
+    "setup_commands": [
+      "sudo env INSTALL_PREFIX=/usr/local ./dockerfiles/install_pinned_patchelf.sh",
+      "python3 -m venv .venv",
+      ". .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt",
+      ". .venv/bin/activate && python3 ./build_tools/fetch_sources.py"
+    ],
+    "notes": "TheRock documents ccache for frequent CMake rebuilds and has current ROCm compiler-cache pain around restaged headers and HIP/sccache integration. This proof intentionally measures the direct CMake compiler-launcher path with BoringCache-backed sccache, not a generic Docker layer build."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true,
+    "timeout_minutes": 180
+  }
+}
