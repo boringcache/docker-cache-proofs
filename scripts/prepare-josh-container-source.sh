@@ -38,13 +38,14 @@ SH
 if [[ -f "$source_dir/ws/sccache-proxy.josh" ]]; then
   cat > "$source_dir/ws/sccache-proxy.josh" <<'JOSH'
 :#image[:+images/boringcache-sccache-proxy]
+:$port="3000"
 
 env = :[
     :$BORINGCACHE_PROXY_HOST="host.containers.internal"
     :$BORINGCACHE_PROXY_PORT="5001"
 ]
 
-env_passthrough = :[
+passthrough = :[
 ]
 
 inject = :[
