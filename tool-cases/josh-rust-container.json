@@ -12,7 +12,9 @@
   },
   "refs": {
     "main": "60f70ca5dec42623bce1db1a6d8a58b743ea515a",
-    "sidecar-pr": "53e9ce10b809c41c8e704fa538d00eded6d7ab1e"
+    "sidecar-pr": "53e9ce10b809c41c8e704fa538d00eded6d7ab1e",
+    "current": "e4efbc4e17c8472775008ae0b0ba5fabe4b6de57",
+    "rolling1": "e4efbc4e17c8472775008ae0b0ba5fabe4b6de57"
   },
   "tool": {
     "rust_toolchain": "1.95.0",
