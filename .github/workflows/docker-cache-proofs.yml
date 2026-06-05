@@ -13,6 +13,8 @@ on:
           - phentrieve-api
           - wormhole-solana
           - cardstack-realm-server
+          - dependabot-updater-core
+          - dependabot-go-modules
           - kvrocks-docker
           - kvrocks-docker-sccache
           - nmisp-nightly
