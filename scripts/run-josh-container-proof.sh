@@ -22,4 +22,8 @@ if ! kill -0 "$forward_pid" 2>/dev/null; then
   exit 1
 fi
 
-target/release/josh compose run
+if [[ -f ci-sidecars.josh ]]; then
+  target/release/josh compose run HEAD ":[::sidecars.josh=ci-sidecars.josh,:/]:+compose"
+else
+  target/release/josh compose run
+fi
