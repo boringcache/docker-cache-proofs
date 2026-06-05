@@ -11,8 +11,10 @@ on:
         type: choice
         options:
           - aranya-rust
+          - besu-gradle
           - josh-rust-container
           - kvrocks-cpp-sccache
+          - therock-prim-sccache
           - tiny-congress-rust
           - z3wire-bazel-devcontainer
       ref_key:
@@ -272,10 +274,10 @@ jobs:
         run: ./scripts/prepare-tool-case-source.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
 
       - name: Set up Go for integration tests
-        if: steps.case.outputs.adapter == 'cpp-sccache'
+        if: steps.case.outputs.adapter == 'cpp-sccache' && steps.case.outputs.go_version_file != ''
         uses: actions/setup-go@v6
         with:
-          go-version-file: ${{ steps.case.outputs.source_path }}/tests/gocase/go.mod
+          go-version-file: ${{ steps.case.outputs.source_path }}/${{ steps.case.outputs.go_version_file }}
           cache: false
 
       - name: Prepare benchmark scope
@@ -392,7 +394,7 @@ jobs:
             --cold-build-seconds "$cold_build_seconds" \
             --cache-storage-bytes "0" \
             --cache-storage-source "not-probed" \
-            --hit-behavior-note "C++/sccache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}. Go integration runtime is included as the remaining non-compiler-cache tail." \
+            --hit-behavior-note "C++/sccache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}. Non-compiler-cache setup and test/runtime work remains as the honest tail." \
             --workspace "${BENCHMARK_WORKSPACE}" \
             --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
             --mode sccache \
@@ -412,6 +414,238 @@ jobs:
 
       - name: Upload native tool stats
         if: always() && steps.case.outputs.adapter == 'cpp-sccache'
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-native-tool-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+          path: benchmark-native-tool/
+          if-no-files-found: ignore
+
+  boringcache-gradle:
+    name: BC / Gradle
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Resolve tool case
+        id: case
+        run: ./scripts/emit-tool-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Skip non-Gradle adapter
+        if: steps.case.outputs.adapter != 'gradle'
+        run: echo "Gradle job skipped for adapter ${{ steps.case.outputs.adapter }}"
+
+      - name: Prepare pinned source tree
+        if: steps.case.outputs.adapter == 'gradle'
+        run: ./scripts/prepare-tool-case-source.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Setup Java runtime
+        if: steps.case.outputs.adapter == 'gradle'
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ steps.case.outputs.java_distribution }}
+          java-version: ${{ steps.case.outputs.java_version }}
+
+      - name: Prepare benchmark scope
+        if: steps.case.outputs.adapter == 'gradle'
+        id: scope
+        run: |
+          set -euo pipefail
+          ref_slug="$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9._-' '-')"
+          ref_slug="${ref_slug#-}"
+          ref_slug="${ref_slug%-}"
+          ref_slug="${ref_slug:-main}"
+          if [[ "${CACHE_LANE}" == "rolling" ]]; then
+            cache_tag="${{ steps.case.outputs.cache_id }}-rolling-${ref_slug}-${{ inputs.case_id }}-gradle"
+          else
+            cache_tag="${{ steps.case.outputs.cache_id }}-run-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-gradle"
+          fi
+          echo "cache_tag=${cache_tag}" >> "$GITHUB_OUTPUT"
+          echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate BoringCache secrets
+        if: steps.case.outputs.adapter == 'gradle'
+        env:
+          BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
+          BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "${BORINGCACHE_RESTORE_TOKEN}" ]] || { echo "Missing BORINGCACHE_RESTORE_TOKEN secret" >&2; exit 1; }
+          [[ -n "${BORINGCACHE_SAVE_TOKEN}" ]] || { echo "Missing BORINGCACHE_SAVE_TOKEN secret" >&2; exit 1; }
+
+      - name: Configure boringcache/one for Gradle
+        if: steps.case.outputs.adapter == 'gradle'
+        id: bc
+        uses: boringcache/one@v1
+        with:
+          setup: none
+          mode: gradle
+          workspace: ${{ env.BENCHMARK_WORKSPACE }}
+          working-directory: ${{ steps.case.outputs.source_path }}/${{ steps.case.outputs.working_directory }}
+          cache-tag: ${{ steps.scope.outputs.cache_tag }}
+          gradle-home: ${{ env.GRADLE_USER_HOME }}
+          proxy-no-git: 'true'
+          proxy-no-platform: 'true'
+          cache-profiles: benchmark
+          verify: wait
+          verbose: true
+        env:
+          BORINGCACHE_RESTORE_TOKEN: ${{ env.BORINGCACHE_RESTORE_TOKEN }}
+          BORINGCACHE_SAVE_TOKEN: ${{ env.BORINGCACHE_SAVE_TOKEN }}
+          BORINGCACHE_PROXY_METADATA_HINTS: benchmark=${{ steps.case.outputs.benchmark_id }},phase=${{ inputs.cache_lane == 'rolling' && 'commit' || 'cold' }},adapter=gradle
+
+      - name: Run case setup
+        if: steps.case.outputs.adapter == 'gradle'
+        env:
+          SOURCE_PATH: ${{ steps.case.outputs.source_path }}
+          TOOL_WORKING_DIRECTORY: ${{ steps.case.outputs.working_directory }}
+          TOOL_SETUP_APT_PACKAGES: ${{ steps.case.outputs.setup_apt_packages }}
+          TOOL_SETUP_COMMANDS: ${{ steps.case.outputs.setup_commands }}
+        run: ./scripts/run-tool-case-setup.sh
+
+      - name: Run measured Gradle command
+        if: steps.case.outputs.adapter == 'gradle'
+        id: measured
+        env:
+          SOURCE_PATH: ${{ steps.case.outputs.source_path }}
+          TOOL_WORKING_DIRECTORY: ${{ steps.case.outputs.working_directory }}
+          TOOL_BUILD_COMMAND: ${{ steps.case.outputs.measured_command }}
+        run: |
+          set +e
+          mkdir -p benchmark-native-tool
+          workdir="${SOURCE_PATH%/}/${TOOL_WORKING_DIRECTORY#./}"
+          if [[ "${TOOL_WORKING_DIRECTORY}" == "." ]]; then
+            workdir="${SOURCE_PATH%/}"
+          fi
+          started_at="$(date +%s)"
+          (
+            cd "$workdir"
+            bash -euo pipefail -c "$TOOL_BUILD_COMMAND"
+          ) 2>&1 | tee benchmark-native-tool/gradle.log
+          status="${PIPESTATUS[0]}"
+          finished_at="$(date +%s)"
+          set -e
+          build_seconds="$((finished_at - started_at))"
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "build_seconds=${build_seconds}" >> "$GITHUB_OUTPUT"
+          echo "total_seconds=$((finished_at - ${{ steps.scope.outputs.started_at }}))" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Parse Gradle task outcome
+        if: always() && steps.case.outputs.adapter == 'gradle'
+        id: gradle_outcome
+        run: ./scripts/parse-gradle-task-outcome.sh benchmark-native-tool/gradle.log commit
+
+      - name: Write Gradle task evidence
+        if: always() && steps.case.outputs.adapter == 'gradle'
+        id: tool_outcomes
+        env:
+          OUTCOME_SUMMARY: ${{ steps.gradle_outcome.outputs.summary }}
+          ACTIONABLE_TASKS: ${{ steps.gradle_outcome.outputs.actionable_tasks }}
+          EXECUTED_TASKS: ${{ steps.gradle_outcome.outputs.executed_tasks }}
+          FROM_CACHE_TASKS: ${{ steps.gradle_outcome.outputs.from_cache_tasks }}
+          UP_TO_DATE_TASKS: ${{ steps.gradle_outcome.outputs.up_to_date_tasks }}
+          OUTCOME_WARNING: ${{ steps.gradle_outcome.outputs.warning }}
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results
+          json_string_or_null() {
+            if [[ -z "$1" ]]; then
+              echo "null"
+            else
+              jq -Rn --arg value "$1" '$value'
+            fi
+          }
+          num_or_null() {
+            if [[ "$1" =~ ^[0-9]+$ ]]; then
+              printf '%s\n' "$1"
+            else
+              echo "null"
+            fi
+          }
+          warnings_json="$(printf '%s\n' "$OUTCOME_WARNING" | jq -R -s 'split("\n") | map(select(length > 0)) | unique')"
+          cat > benchmark-results/tool-outcomes.json <<JSON
+          {
+            "gradle": {
+              "local_build_cache_policy": "remote",
+              "commit": {
+                "summary": $(json_string_or_null "$OUTCOME_SUMMARY"),
+                "actionable_tasks": $(num_or_null "$ACTIONABLE_TASKS"),
+                "executed_tasks": $(num_or_null "$EXECUTED_TASKS"),
+                "from_cache_tasks": $(num_or_null "$FROM_CACHE_TASKS"),
+                "up_to_date_tasks": $(num_or_null "$UP_TO_DATE_TASKS")
+              }
+            },
+            "warnings": ${warnings_json}
+          }
+          JSON
+          jq -c '.' benchmark-results/tool-outcomes.json >/dev/null
+          echo "path=benchmark-results/tool-outcomes.json" >> "$GITHUB_OUTPUT"
+
+      - name: Write benchmark artifacts
+        if: always() && steps.case.outputs.adapter == 'gradle'
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results
+          started_at="${{ steps.scope.outputs.started_at }}"
+          started_at="${started_at:-$(date +%s)}"
+          cold_seconds="${{ steps.measured.outputs.total_seconds }}"
+          cold_build_seconds="${{ steps.measured.outputs.build_seconds }}"
+          if [[ -z "$cold_seconds" ]]; then
+            cold_seconds="$(($(date +%s) - started_at))"
+          fi
+          cold_build_seconds="${cold_build_seconds:-0}"
+          save_result="skipped-build-failed"
+          if [[ "${{ steps.measured.outputs.status }}" == "0" ]]; then
+            save_result="attempted"
+          fi
+          tool_outcomes_args=()
+          tool_outcomes_path="${{ steps.tool_outcomes.outputs.path }}"
+          if [[ -n "$tool_outcomes_path" && -s "$tool_outcomes_path" ]]; then
+            tool_outcomes_args=(--tool-outcomes-json "$tool_outcomes_path")
+          fi
+          ./scripts/write-benchmark-artifacts.sh \
+            --benchmark "${{ steps.case.outputs.benchmark_id }}" \
+            --strategy boringcache \
+            --lane "${{ inputs.cache_lane }}" \
+            --project-repo "${{ steps.case.outputs.project_repo }}" \
+            --project-ref "${{ steps.case.outputs.project_ref }}" \
+            --cold-seconds "$cold_seconds" \
+            --cold-build-seconds "$cold_build_seconds" \
+            --cache-storage-bytes "0" \
+            --cache-storage-source "not-probed" \
+            --hit-behavior-note "Gradle remote-cache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}." \
+            --workspace "${BENCHMARK_WORKSPACE}" \
+            --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
+            --mode gradle \
+            --adapter gradle \
+            --restore-result "${{ steps.bc.outputs.cache-hit }}" \
+            --save-result "$save_result" \
+            --output-dir benchmark-results \
+            "${tool_outcomes_args[@]}"
+
+      - name: Upload benchmark results
+        if: always() && steps.case.outputs.adapter == 'gradle'
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
+          path: benchmark-results/
+          if-no-files-found: error
+
+      - name: Upload Gradle log
+        if: always() && steps.case.outputs.adapter == 'gradle'
         uses: actions/upload-artifact@v6
         with:
           name: benchmark-native-tool-${{ steps.case.outputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}

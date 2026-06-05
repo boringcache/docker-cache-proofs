@@ -2000,18 +2000,20 @@ JSON
   fi
 
   if [[ "$tool_outcomes_payload" != "null" ]]; then
-    gradle_warm_executed="$(jq -r '.gradle.warm1.executed_tasks // empty' <<< "$tool_outcomes_payload")"
-    gradle_warm_from_cache="$(jq -r '.gradle.warm1.from_cache_tasks // empty' <<< "$tool_outcomes_payload")"
-    gradle_warm_up_to_date="$(jq -r '.gradle.warm1.up_to_date_tasks // empty' <<< "$tool_outcomes_payload")"
+    gradle_phase_label="$(jq -r 'if .gradle.commit then "commit" elif .gradle.warm1 then "warm" else empty end' <<< "$tool_outcomes_payload")"
+    gradle_phase_payload="$(jq -c '.gradle.commit // .gradle.warm1 // null' <<< "$tool_outcomes_payload")"
+    gradle_warm_executed="$(jq -r '.executed_tasks // empty' <<< "$gradle_phase_payload")"
+    gradle_warm_from_cache="$(jq -r '.from_cache_tasks // empty' <<< "$gradle_phase_payload")"
+    gradle_warm_up_to_date="$(jq -r '.up_to_date_tasks // empty' <<< "$gradle_phase_payload")"
     gradle_warnings="$(jq -r '(.warnings // []) | join("; ")' <<< "$tool_outcomes_payload")"
     if [[ -n "$gradle_warm_executed" ]]; then
-      echo "| Gradle warm executed tasks | ${gradle_warm_executed} |"
+      echo "| Gradle ${gradle_phase_label:-warm} executed tasks | ${gradle_warm_executed} |"
     fi
     if [[ -n "$gradle_warm_from_cache" ]]; then
-      echo "| Gradle warm from-cache tasks | ${gradle_warm_from_cache} |"
+      echo "| Gradle ${gradle_phase_label:-warm} from-cache tasks | ${gradle_warm_from_cache} |"
     fi
     if [[ -n "$gradle_warm_up_to_date" ]]; then
-      echo "| Gradle warm up-to-date tasks | ${gradle_warm_up_to_date} |"
+      echo "| Gradle ${gradle_phase_label:-warm} up-to-date tasks | ${gradle_warm_up_to_date} |"
     fi
     if [[ -n "$gradle_warnings" ]]; then
       echo "| Tool outcome warnings | ${gradle_warnings} |"

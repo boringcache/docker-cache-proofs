@@ -30,8 +30,10 @@ Use the `Tool Cache Proof` workflow for prospect-shaped adapter runs that are no
 | Case | Adapter | Public pain | Readiness |
 |---|---|---|---|
 | `aranya-rust` | Rust/sccache | [Aranya CI compile-time issue](https://github.com/aranya-project/aranya/issues/135): open issue, GHA cache called not ideal, S3-backed sccache considered. | Pitch-ready first Rust proof. |
+| `besu-gradle` | Gradle remote cache | [Besu Gradle cache issue](https://github.com/besu-eth/besu/issues/10427): current request to enable Gradle caching across workflows; pre-review compile disables the Gradle action cache while running the real Gradle build. | Current product Gradle proof; compare task outcomes before claiming. |
 | `josh-rust-container` | Rust/sccache inside Podman containers | [Josh sidecar PR](https://github.com/josh-project/josh/pull/2025): build containers have no internet, so sccache needed an R2-signing sidecar. | Strategic sidecar proof; run singly before any ordered series. |
 | `kvrocks-cpp-sccache` | C++/sccache plus Go integration tail | [Kvrocks CI optimization issue](https://github.com/apache/kvrocks/issues/2642): started from slow Go tests, then active comments called out C++ build and third-party dependency compile cost. | Multi-tool candidate; compiler-cache proof first, Docker proof adjacent. |
+| `therock-prim-sccache` | C++/CMake sccache | [TheRock ccache miss issue](https://github.com/ROCm/TheRock/issues/5009): current ROCm build pain around restaged headers causing downstream compiler-cache misses; TheRock also tracks HIP/sccache integration. | High-value compiler-cache proof; not a generic Docker lane. |
 | `tiny-congress-rust` | Rust/sccache | [Tiny Congress PR](https://github.com/icook/tiny-congress/pull/683): ARC runners plus Garage S3-backed sccache. | Reference proof; they already built a workaround. |
 
 ## Manual Runs
@@ -51,7 +53,7 @@ Use the tool-cache lane in the `Tool Cache Proof` workflow with:
 
 - `cache_lane=fresh` for one pinned source build with a per-run cache tag;
 - `cache_lane=rolling` for one commit build against a stable rolling cache tag;
-- `case_id=aranya-rust`, `josh-rust-container`, `kvrocks-cpp-sccache`, or `tiny-congress-rust`.
+- `case_id=aranya-rust`, `besu-gradle`, `josh-rust-container`, `kvrocks-cpp-sccache`, `therock-prim-sccache`, or `tiny-congress-rust`.
 
 For ordered fresh + rolling runs:
 

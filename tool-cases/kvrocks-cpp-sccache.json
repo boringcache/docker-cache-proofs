@@ -16,6 +16,7 @@
     "rolling3": "67ad024dff21a0bd653ade7062c09c13545d8a23"
   },
   "tool": {
+    "go_version_file": "tests/gocase/go.mod",
     "working_directory": ".",
     "measured_command": "export NPROC=\"${NPROC:-$(nproc)}\"\nexport PATH=\"$PATH:$HOME/local/bin\"\nexport CC=\"sccache cc\"\nexport CXX=\"sccache c++\"\n./x.py build -j\"$NPROC\" --unittest --compiler gcc -D CMAKE_C_COMPILER_LAUNCHER=sccache -D CMAKE_CXX_COMPILER_LAUNCHER=sccache --dep-dir build-deps\n./x.py test cpp\n./x.py test go build -parallel 2",
     "setup_apt_packages": [
