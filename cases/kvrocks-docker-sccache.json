@@ -1,0 +1,31 @@
+{
+  "id": "kvrocks-docker-sccache",
+  "name": "Apache Kvrocks Docker image with container-side sccache",
+  "source": {
+    "repo": "apache/kvrocks",
+    "evidence_run": "https://github.com/apache/kvrocks/actions/runs/26924643510",
+    "runner": "GitHub-hosted ubuntu-24.04"
+  },
+  "refs": {
+    "main": "1f8257586dc9fd48138cea7b5c06d291858741b8",
+    "rolling1": "a9a0b1925f398450b486b214bc1ee2c3645ee400",
+    "rolling2": "7359de7dde7ba746e36cc888c7132d80ad9b683c",
+    "rolling3": "67ad024dff21a0bd653ade7062c09c13545d8a23"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile.boringcache-sccache",
+    "overlay_dockerfile": "overlays/kvrocks-docker-sccache/Dockerfile",
+    "image": "kvrocks-sccache",
+    "platform": "linux/amd64",
+    "original_cache": "type=gha",
+    "tool_cache": "sccache:{CACHE_SCOPE}-sccache",
+    "build_args": [
+      "MORE_BUILD_ARGS=-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+    ]
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true
+  }
+}

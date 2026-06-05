@@ -16,6 +16,7 @@ cache_unreadable_from_refs="${BORINGCACHE_CACHE_UNREADABLE_FROM_REFS:-}"
 cache_promotion_refs="${BORINGCACHE_DOCKER_PROMOTION_REFS:-}"
 allow_rolling_bootstrap="${ALLOW_BORINGCACHE_ROLLING_BOOTSTRAP:-false}"
 build_output="${BENCHMARK_BUILD_OUTPUT:-none}"
+docker_tool_cache="${DOCKER_TOOL_CACHE:-}"
 oci_hydration="${BORINGCACHE_OCI_HYDRATION:-metadata-only}"
 native_tool_evidence_dir="$(mktemp -d /tmp/boringcache-native-tool.XXXXXX)"
 chmod 0777 "$native_tool_evidence_dir" 2>/dev/null || true
@@ -237,6 +238,36 @@ append_native_tool_metrics() {
   fi
 }
 
+parse_tool_cache_args() {
+  tool_cache_args=()
+  while IFS= read -r tool_cache_entry; do
+    tool_cache_entry="${tool_cache_entry#"${tool_cache_entry%%[![:space:]]*}"}"
+    tool_cache_entry="${tool_cache_entry%"${tool_cache_entry##*[![:space:]]}"}"
+    [[ -n "$tool_cache_entry" ]] || continue
+    tool_cache_entry="${tool_cache_entry//\{CACHE_SCOPE\}/${CACHE_SCOPE:?Set CACHE_SCOPE}}"
+    tool_cache_args+=(--tool-cache "$tool_cache_entry")
+  done < <(printf '%s\n' "$docker_tool_cache" | tr ',' '\n')
+}
+
+write_sccache_stats_from_build_log() {
+  grep -q 'BEGIN_BORINGCACHE_SCCACHE_STATS' "$build_log" || return 0
+
+  mkdir -p benchmark-native-tool
+  awk '
+    /BEGIN_BORINGCACHE_SCCACHE_STATS/ { capture = 1; next }
+    /END_BORINGCACHE_SCCACHE_STATS/ { capture = 0 }
+    capture {
+      sub(/^#[0-9]+[[:space:]]+[0-9.]+[[:space:]]+/, "")
+      sub(/^#[0-9]+[[:space:]]+/, "")
+      print
+    }
+  ' "$build_log" | sed '/^[[:space:]]*$/d' > benchmark-native-tool/sccache-stats.txt
+
+  if ! grep -q 'Compile requests' benchmark-native-tool/sccache-stats.txt; then
+    rm -f benchmark-native-tool/sccache-stats.txt
+  fi
+}
+
 
 capture_proxy_status() {
   local output_path="${1:-$status_snapshot_path}"
@@ -348,6 +379,11 @@ write_build_diagnostics() {
       jq -c '{restore, publisher, command, publish}' "$native_tool_evidence_path" 2>/dev/null || cat "$native_tool_evidence_path"
       echo "EOF"
     fi
+    if [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
+      echo "sccache_stats<<EOF"
+      cat benchmark-native-tool/sccache-stats.txt
+      echo "EOF"
+    fi
     if [[ -n "$observability_path" && -s "$observability_path" ]]; then
       printf 'observability_events='
       wc -l < "$observability_path" | tr -d ' '
@@ -382,6 +418,7 @@ run_native_build() {
     --native-tool-evidence-json "$native_tool_evidence_path"
     --fail-on-cache-error
   )
+  boringcache_args+=("${tool_cache_args[@]}")
   local boringcache_bin
   boringcache_bin="$(command -v boringcache)"
   local boringcache_cmd=("$boringcache_bin")
@@ -407,16 +444,66 @@ run_native_build() {
   set -e
 }
 
+run_registry_tool_cache_build() {
+  local phase_hint="cold"
+  if [[ "$mode" == "rolling" ]]; then
+    phase_hint="commit"
+  fi
+
+  local boringcache_args=(
+    docker
+    --workspace "${BENCHMARK_WORKSPACE:?Set BENCHMARK_WORKSPACE}"
+    --tag "${CACHE_SCOPE:?Set CACHE_SCOPE}"
+    --backend registry
+    --port "$proxy_port"
+    --host "${DOCKER_TOOL_CACHE_PROXY_HOST:-127.0.0.1}"
+    --endpoint-host "${DOCKER_TOOL_CACHE_ENDPOINT_HOST:-127.0.0.1}"
+    --cache-mode max
+    --no-platform
+    --no-git
+    --oci-hydration "$oci_hydration"
+    --metadata-hint "benchmark=${BENCHMARK_ID:-docker}"
+    --metadata-hint "phase=${phase_hint}"
+    --metadata-hint "lane=${CACHE_LANE:-fresh}"
+    --metadata-hint "backend=registry"
+    --fail-on-cache-error
+  )
+  boringcache_args+=("${tool_cache_args[@]}")
+
+  local builder="${TOOL_CACHE_BUILDER:-${BUILDER:-}}"
+  local builder_args=()
+  if [[ -n "$builder" ]]; then
+    builder_args=(--builder "$builder")
+  fi
+
+  : > "$build_log"
+  set +e
+  DOCKER_BUILDKIT=1 BORINGCACHE_TIMING_TRACE=1 boringcache "${boringcache_args[@]}" -- \
+    docker buildx build \
+    "${builder_args[@]}" \
+    --file "$DOCKERFILE_PATH" \
+    --tag "$IMAGE_TAG" \
+    --progress=plain \
+    ${extra_args[@]+"${extra_args[@]}"} \
+    ${cache_args[@]+"${cache_args[@]}"} \
+    ${output_args[@]+"${output_args[@]}"} \
+    "$BENCHMARK_DOCKER_CONTEXT" 2>&1 | tee "$build_log"
+  status=${PIPESTATUS[0]}
+  set -e
+}
+
 
 attempt=1
 while true; do
   cache_args=()
   extra_args=()
   output_args=()
+  tool_cache_args=()
   while IFS= read -r arg; do
     [[ -n "$arg" ]] || continue
     extra_args+=("$arg")
   done <<< "${DOCKER_BUILD_EXTRA_ARGS:-}"
+  parse_tool_cache_args
 
   case "$build_output" in
     none)
@@ -453,6 +540,8 @@ while true; do
 
   if [[ "$backend" == "native" ]]; then
     run_native_build
+  elif [[ "${#tool_cache_args[@]}" -gt 0 ]]; then
+    run_registry_tool_cache_build
   else
     require_readable_cache_import
     start_proxy
@@ -486,6 +575,7 @@ while true; do
 
   if [[ "$status" -eq 0 ]]; then
     import_status="$(build_import_status)"
+    write_sccache_stats_from_build_log
     if [[ "$mode" =~ ^(rolling|fresh)$ ]] && grep -Eq "$cache_export_pattern" "$build_log"; then
       capture_proxy_status
       write_build_metrics
@@ -499,8 +589,10 @@ while true; do
     capture_proxy_status
     if [[ "$backend" == "registry" && "$mode" =~ ^(fresh|rolling)$ ]]; then
       # Stop proxy gracefully so it can flush pending uploads.
-      echo "Flushing proxy cache to backend..."
-      flush_action_proxy
+      if [[ "${#tool_cache_args[@]}" -eq 0 ]]; then
+        echo "Flushing proxy cache to backend..."
+        flush_action_proxy
+      fi
     fi
     # Dump proxy log for diagnostics
     echo "=== Proxy log (${mode}, last 200 lines) ==="

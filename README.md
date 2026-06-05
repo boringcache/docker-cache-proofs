@@ -14,6 +14,7 @@ The GitHub repository is `boringcache/docker-cache-proofs`. The live BoringCache
 | `wormhole-solana` | Workflow says GHA cache can hang on large Docker uploads. | [Official slow Solana job](https://github.com/wormhole-foundation/native-token-transfers/actions/runs/26104579611/job/76764717136); BoringCache proof runs in this repo. |
 | `cardstack-realm-server` | Cardstack workflow/action notes say GHA cache transfer for large pnpm-fetch layers was slower than rerunning fetch, so they moved to ECR registry cache. | [Official deploy sample](https://github.com/cardstack/boxel/actions/runs/25861223646); BoringCache proof runs in this repo. |
 | `kvrocks-docker` | [Kvrocks CI optimization issue](https://github.com/apache/kvrocks/issues/2642): active discussion says native build/compile time is a large CI cost; the official workflow also builds and tests Docker images. | [Official CI sample](https://github.com/apache/kvrocks/actions/runs/26924643510); BoringCache proof runs in this repo. |
+| `kvrocks-docker-sccache` | Same Kvrocks pain, using a proof Dockerfile overlay that keeps the upstream image shape while opting the build stage into BoringCache-backed `sccache`. | [Official CI sample](https://github.com/apache/kvrocks/actions/runs/26924643510); BoringCache proof runs in this repo. |
 
 ## Tool Cache Cases
 
@@ -32,7 +33,8 @@ Use the Docker lane in the `Docker Cache Proof` workflow with:
 
 - `cache_lane=fresh` for one cold build on the pinned commit;
 - `cache_lane=rolling` for one continuous-commit build on a stable case cache scope;
-- `build_output=none`, `load`, or `local-registry` depending on the UX surface being measured.
+- `build_output=none`, `load`, or `local-registry` depending on the UX surface being measured;
+- `case_id=kvrocks-docker-sccache` for the Docker + container-side `sccache` proof lane.
 
 Fresh lanes may export cache for storage accounting, but they do not run a second build. Rolling lanes own prior-cache import/update evidence.
 
