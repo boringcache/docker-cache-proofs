@@ -102,6 +102,14 @@ sccache --show-stats
 exit "$status"
 SH
 
+cat > "$source_dir/run-cargo-fetch-without-sccache.sh" <<'SH'
+#!/bin/sh
+set -e
+
+unset RUSTC_WRAPPER CARGO_BUILD_RUSTC_WRAPPER SCCACHE_WEBDAV_ENDPOINT SCCACHE_ENDPOINT
+cargo fetch --locked
+SH
+
 test_ws="$source_dir/ws/test.josh"
 if ! grep -q 'run-cargo-test-with-stats.sh' "$test_ws"; then
   perl -0pi -e 's#:\$cmd="cargo test --workspace --offline --locked"#:\$cmd="sh run-cargo-test-with-stats.sh"#' "$test_ws"
@@ -115,10 +123,11 @@ fi
 
 fetch_ws="$source_dir/ws/fetch.josh"
 if [[ -f "$fetch_ws" ]] && ! grep -q 'RUSTC_WRAPPER' "$fetch_ws"; then
-  perl -0pi -e 's{:\$cmd="cargo fetch --locked"}{:\$cmd="unset RUSTC_WRAPPER SCCACHE_WEBDAV_ENDPOINT SCCACHE_ENDPOINT; cargo fetch --locked"}' "$fetch_ws"
+  perl -0pi -e 's{:\$cmd="cargo fetch --locked"}{:\$cmd="sh run-cargo-fetch-without-sccache.sh"}' "$fetch_ws"
+  perl -0pi -e 's#(::\*\*/rust-toolchain\.toml\n)#${1}    ::run-cargo-fetch-without-sccache.sh\n#' "$fetch_ws"
 fi
 
-if [[ -f "$fetch_ws" ]] && ! grep -q 'RUSTC_WRAPPER' "$fetch_ws"; then
+if [[ -f "$fetch_ws" ]] && ! grep -q 'run-cargo-fetch-without-sccache.sh' "$fetch_ws"; then
   echo "Failed to patch Josh fetch workspace to run without sccache wrapper" >&2
   exit 1
 fi
