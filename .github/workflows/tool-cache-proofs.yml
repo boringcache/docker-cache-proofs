@@ -498,7 +498,6 @@ jobs:
           gradle-home: ${{ env.GRADLE_USER_HOME }}
           proxy-no-git: 'true'
           proxy-no-platform: 'true'
-          cache-profiles: benchmark
           verify: wait
           verbose: true
         env:
