@@ -9,10 +9,7 @@
   },
   "refs": {
     "main": "593c05fd675ed2bc9bc9884d0d12f829ced1438e",
-    "rolling1": "2f308fa431c0c3942e0a8ac5ca57e9529c1702af",
-    "rolling2": "2cb88b2643a5b4cccbc7cd32690967ee6a34c866",
-    "rolling3": "717691a3cc8689a8a7c894d58dabd07397df51ee",
-    "current": "1b9ae7a2ac74f6497df1c41863732ec320e2ecfd"
+    "rolling1": "2695cef895e6ae33d1f5cd77c85ef98f58688324"
   },
   "docker": {
     "context": ".",
