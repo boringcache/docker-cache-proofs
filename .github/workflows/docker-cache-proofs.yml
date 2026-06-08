@@ -69,7 +69,7 @@ jobs:
         run: ./scripts/emit-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" "${{ inputs.build_output }}"
 
   boringcache-oci:
-    name: BC / OCI
+    name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC OCI + toolcache' || 'BC OCI' }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -97,7 +97,7 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Run BoringCache OCI proof
+      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache OCI + toolcache proof' || 'Run BoringCache OCI proof' }}
         uses: ./.github/actions/docker-case-benchmark
         with:
           strategy: boringcache
@@ -120,7 +120,7 @@ jobs:
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
   boringcache-native:
-    name: BC native
+    name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC Native + toolcache' || 'BC Native' }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -148,7 +148,7 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Run BoringCache native proof
+      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache Native + toolcache proof' || 'Run BoringCache Native proof' }}
         uses: ./.github/actions/docker-case-benchmark
         with:
           strategy: boringcache
