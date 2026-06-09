@@ -51,6 +51,22 @@ inputs:
     description: Image output mode for UX parity. none measures cache-only build; local-registry will be wired once native push emulation is ready.
     required: false
     default: none
+  ecr_region:
+    description: AWS region for the ECR registry-cache benchmark lane.
+    required: false
+    default: us-east-1
+  ecr_role_arn:
+    description: IAM role ARN assumed by GitHub Actions through OIDC for the ECR registry-cache benchmark lane.
+    required: false
+    default: ''
+  ecr_registry:
+    description: Optional ECR registry hostname. Defaults to the account registry for ecr_region after role assumption.
+    required: false
+    default: ''
+  ecr_repository:
+    description: ECR repository used for BuildKit registry cache manifests.
+    required: false
+    default: ''
   cli_platform:
     required: false
     default: linux-amd64
@@ -187,12 +203,54 @@ runs:
       driver-opts: |
         network=host
   - name: Set up Docker Buildx
-    if: "${{ inputs.strategy == 'actions-cache' }}"
+    if: "${{ inputs.strategy == 'actions-cache' || inputs.strategy == 'ecr-cache' }}"
     id: buildx
     uses: docker/setup-buildx-action@v4
     with:
       driver-opts: |
         network=host
+  - name: Validate ECR inputs
+    if: "${{ inputs.strategy == 'ecr-cache' }}"
+    env:
+      ECR_REGION: "${{ inputs.ecr_region }}"
+      ECR_ROLE_ARN: "${{ inputs.ecr_role_arn }}"
+      ECR_REPOSITORY: "${{ inputs.ecr_repository }}"
+    run: |
+      set -euo pipefail
+      [[ -n "$ECR_REGION" ]] || { echo "Missing ecr_region input" >&2; exit 1; }
+      [[ -n "$ECR_ROLE_ARN" ]] || { echo "Missing ecr_role_arn input" >&2; exit 1; }
+      [[ -n "$ECR_REPOSITORY" ]] || { echo "Missing ecr_repository input" >&2; exit 1; }
+    shell: bash
+  - name: Configure AWS credentials for ECR
+    if: "${{ inputs.strategy == 'ecr-cache' }}"
+    uses: aws-actions/configure-aws-credentials@v6.1.0
+    with:
+      aws-region: "${{ inputs.ecr_region }}"
+      role-to-assume: "${{ inputs.ecr_role_arn }}"
+      role-session-name: bc-docker-cache-${{ github.run_id }}-${{ github.run_attempt }}
+      mask-aws-account-id: 'true'
+      unset-current-credentials: 'true'
+  - name: Login to Amazon ECR
+    if: "${{ inputs.strategy == 'ecr-cache' }}"
+    uses: aws-actions/amazon-ecr-login@v2.1.5
+  - name: Resolve ECR cache repository
+    if: "${{ inputs.strategy == 'ecr-cache' }}"
+    id: ecr_cache
+    env:
+      ECR_REGION: "${{ inputs.ecr_region }}"
+      ECR_REGISTRY: "${{ inputs.ecr_registry }}"
+      ECR_REPOSITORY: "${{ inputs.ecr_repository }}"
+    run: |
+      set -euo pipefail
+      account_id="$(aws sts get-caller-identity --query Account --output text)"
+      registry="${ECR_REGISTRY:-${account_id}.dkr.ecr.${ECR_REGION}.amazonaws.com}"
+      aws ecr describe-repositories \
+        --region "$ECR_REGION" \
+        --repository-names "$ECR_REPOSITORY" >/dev/null
+      echo "registry=${registry}" >> "$GITHUB_OUTPUT"
+      echo "repository=${ECR_REPOSITORY}" >> "$GITHUB_OUTPUT"
+      echo "cache_ref=${registry}/${ECR_REPOSITORY}" >> "$GITHUB_OUTPUT"
+    shell: bash
   - name: Expose GitHub runtime for Buildx cache
     if: "${{ inputs.strategy == 'actions-cache' }}"
     uses: crazy-max/ghaction-github-runtime@v4
@@ -230,7 +288,7 @@ runs:
       BORINGCACHE_CACHE_USED_FROM_REFS: "${{ steps.docker_cache.outputs.docker-cache-from-refs }}"
       BORINGCACHE_CACHE_UNREADABLE_FROM_REFS: "${{ steps.docker_cache.outputs.docker-cache-unreadable-from-refs }}"
       BORINGCACHE_DOCKER_PROMOTION_REFS: "${{ steps.docker_cache.outputs.docker-cache-promotion-refs }}"
-      BUILDER: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && steps.docker_cache.outputs.buildx-name || inputs.strategy == 'actions-cache' && steps.buildx.outputs.name || '' }}"
+      BUILDER: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && steps.docker_cache.outputs.buildx-name || steps.buildx.outputs.name || '' }}"
       TOOL_CACHE_BUILDER: "${{ steps.tool_cache_buildx.outputs.name }}"
       CACHE_FROM: "${{ steps.docker_cache.outputs.cache-from }}"
       CACHE_TO: "${{ steps.docker_cache.outputs.cache-to }}"
@@ -245,6 +303,9 @@ runs:
       BENCHMARK_DOCKER_CONTEXT: "${{ inputs.docker_context }}"
       DOCKER_TOOL_CACHE: "${{ inputs.docker_tool_cache }}"
       GITHUB_TOKEN: "${{ env.GITHUB_TOKEN }}"
+      ECR_CACHE_REF: "${{ steps.ecr_cache.outputs.cache_ref }}"
+      ECR_REPOSITORY: "${{ steps.ecr_cache.outputs.repository }}"
+      ECR_REGION: "${{ inputs.ecr_region }}"
     run: |
       set -euo pipefail
 
@@ -317,6 +378,7 @@ runs:
         }
 
         selected_scope="$CACHE_SCOPE_PRIMARY"
+        registry_cache_import_status=""
         phase_start="${{ steps.build_timing_start.outputs.started_at }}"
         start="$(date +%s)"
         attempt=1
@@ -342,15 +404,43 @@ runs:
               ;;
           esac
           if [[ "$CACHE_LANE" == "rolling" ]]; then
-            build_cache_args=(
-              --cache-from "type=gha,scope=${selected_scope}"
-              --cache-to "type=gha,mode=max,scope=${selected_scope}"
-            )
+            if [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
+              build_cache_args=(
+                --cache-from "type=gha,scope=${selected_scope}"
+                --cache-to "type=gha,mode=max,scope=${selected_scope}"
+              )
+            else
+              cache_ref="${ECR_CACHE_REF:?Missing ECR cache ref}:${selected_scope}"
+              if aws ecr describe-images \
+                --region "${ECR_REGION:?Missing ECR region}" \
+                --repository-name "${ECR_REPOSITORY:?Missing ECR repository}" \
+                --image-ids imageTag="$selected_scope" >/dev/null 2>&1; then
+                registry_cache_import_status="ok"
+                build_cache_args=(
+                  --cache-from "type=registry,ref=${cache_ref}"
+                  --cache-to "type=registry,ref=${cache_ref},mode=max,oci-mediatypes=true,image-manifest=true"
+                )
+              else
+                registry_cache_import_status="missing"
+                echo "No prior ECR cache tag found for ${selected_scope}; bootstrapping rolling cache."
+                build_cache_args=(
+                  --cache-to "type=registry,ref=${cache_ref},mode=max,oci-mediatypes=true,image-manifest=true"
+                )
+              fi
+            fi
           else
-            build_cache_args=(
-              --no-cache
-              --cache-to "type=gha,mode=max,scope=${selected_scope}"
-            )
+            if [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
+              build_cache_args=(
+                --no-cache
+                --cache-to "type=gha,mode=max,scope=${selected_scope}"
+              )
+            else
+              cache_ref="${ECR_CACHE_REF:?Missing ECR cache ref}:${selected_scope}"
+              build_cache_args=(
+                --no-cache
+                --cache-to "type=registry,ref=${cache_ref},mode=max,oci-mediatypes=true,image-manifest=true"
+              )
+            fi
           fi
           : > "$build_log"
           set +e
@@ -383,22 +473,41 @@ runs:
           sleep 5
         done
 
-        export_verified=0
-        for _ in $(seq 1 20); do
-          response="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100&key=index-${selected_scope}" 2>/dev/null || true)"
-          if [[ -n "$response" ]] && jq -e '.actions_caches | type == "array"' <<<"$response" >/dev/null 2>&1; then
-            matches="$(jq '.actions_caches | length' <<<"$response")"
-            if [[ "$matches" -gt 0 ]]; then
+        if [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
+          export_verified=0
+          for _ in $(seq 1 20); do
+            response="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100&key=index-${selected_scope}" 2>/dev/null || true)"
+            if [[ -n "$response" ]] && jq -e '.actions_caches | type == "array"' <<<"$response" >/dev/null 2>&1; then
+              matches="$(jq '.actions_caches | length' <<<"$response")"
+              if [[ "$matches" -gt 0 ]]; then
+                export_verified=1
+                break
+              fi
+            fi
+            sleep 3
+          done
+
+          if [[ "$export_verified" -ne 1 ]]; then
+            echo "Docker cache export probe failed: no index cache entry was touched for index-${selected_scope}" >&2
+            exit 1
+          fi
+        else
+          export_verified=0
+          for _ in $(seq 1 20); do
+            if aws ecr describe-images \
+              --region "${ECR_REGION:?Missing ECR region}" \
+              --repository-name "${ECR_REPOSITORY:?Missing ECR repository}" \
+              --image-ids imageTag="$selected_scope" >/dev/null 2>&1; then
               export_verified=1
               break
             fi
-          fi
-          sleep 3
-        done
+            sleep 3
+          done
 
-        if [[ "$export_verified" -ne 1 ]]; then
-          echo "Docker cache export probe failed: no index cache entry was touched for index-${selected_scope}" >&2
-          exit 1
+          if [[ "$export_verified" -ne 1 ]]; then
+            echo "Docker cache export probe failed: no ECR cache image tag was found for ${selected_scope}" >&2
+            exit 1
+          fi
         fi
 
         end="$(date +%s)"
@@ -410,13 +519,20 @@ runs:
         if [[ -n "$import_seconds" ]]; then
           echo "docker_cache_import_seconds=${import_seconds}" >> "$GITHUB_OUTPUT"
         fi
-        export_step="$(find_step_id "preparing build cache for export")"
+        if [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
+          export_step="$(find_step_id "preparing build cache for export")"
+        else
+          export_step="$(find_step_id "exporting cache to registry")"
+        fi
         export_seconds="$(find_step_seconds "$export_step")"
         if [[ -n "$export_seconds" ]]; then
           echo "docker_cache_export_seconds=${export_seconds}" >> "$GITHUB_OUTPUT"
         fi
         cached_steps="$(grep -Ec '^#[0-9]+ CACHED$' "$build_log" || true)"
         echo "buildkit_cached_steps=${cached_steps}" >> "$GITHUB_OUTPUT"
+        if [[ -n "$registry_cache_import_status" ]]; then
+          echo "cache_import_status=${registry_cache_import_status}" >> "$GITHUB_OUTPUT"
+        fi
       fi
     shell: bash
   - name: Upload build diagnostics
@@ -487,6 +603,24 @@ runs:
       bytes="$(.benchmark-config/scripts/sum-gha-cache-by-key.sh "$BENCHMARK_ID" "${{ steps.scope.outputs.scope_started_at }}")"
       echo "bytes=${bytes}" >> "$GITHUB_OUTPUT"
     shell: bash
+  - name: Measure ECR cache storage usage
+    if: "${{ inputs.strategy == 'ecr-cache' }}"
+    id: ecr_cache_size
+    env:
+      ECR_REGION: "${{ inputs.ecr_region }}"
+      ECR_REPOSITORY: "${{ inputs.ecr_repository }}"
+      ECR_CACHE_SCOPE: "${{ steps.measured_build.outputs.cache_scope }}"
+    run: |
+      set -euo pipefail
+      bytes="$(aws ecr describe-images \
+        --region "$ECR_REGION" \
+        --repository-name "$ECR_REPOSITORY" \
+        --image-ids "imageTag=${ECR_CACHE_SCOPE}" \
+        --query 'imageDetails[0].imageSizeInBytes' \
+        --output text)"
+      [[ "$bytes" =~ ^[0-9]+$ ]] || { echo "Unexpected ECR image size: ${bytes}" >&2; exit 1; }
+      echo "bytes=${bytes}" >> "$GITHUB_OUTPUT"
+    shell: bash
   - name: Capture pinned upstream ref
     id: upstream_ref
     run: echo "sha=${PROJECT_REF}" >> "$GITHUB_OUTPUT"
@@ -521,6 +655,7 @@ runs:
       BC_BYTES: "${{ steps.bc_cache_size.outputs.bytes }}"
       BC_STORAGE_BREAKDOWN_PATH: "${{ steps.bc_cache_size.outputs.breakdown_path }}"
       AC_BYTES: "${{ steps.ac_cache_size.outputs.bytes }}"
+      ECR_BYTES: "${{ steps.ecr_cache_size.outputs.bytes }}"
     run: |
       set -euo pipefail
 
@@ -610,7 +745,7 @@ runs:
         else
           emit hit_behavior_note "Fresh lane: one cold build starts from a run-scoped BoringCache Docker namespace, uses --no-cache while exporting cache for storage accounting, and records that build only. No second build runs inside this job."
         fi
-      else
+      elif [[ "$STRATEGY" == "actions-cache" ]]; then
         emit cache_import_status ""
         emit oci_hydration_policy ""
         emit oci_body_local_hits ""
@@ -640,6 +775,39 @@ runs:
         else
           emit hit_behavior_note "Fresh lane: one cold build runs the pinned base tree with --no-cache while exporting cache for storage accounting, and records that build only. No second build runs inside this job."
         fi
+      elif [[ "$STRATEGY" == "ecr-cache" ]]; then
+        emit cache_import_status "$MEASURED_CACHE_IMPORT_STATUS"
+        emit oci_hydration_policy ""
+        emit oci_body_local_hits ""
+        emit oci_body_remote_fetches ""
+        emit oci_body_local_bytes ""
+        emit oci_body_remote_bytes ""
+        emit oci_body_local_duration_ms ""
+        emit oci_body_remote_duration_ms ""
+        emit startup_oci_body_inserted ""
+        emit startup_oci_body_failures ""
+        emit startup_oci_body_cold_blobs ""
+        emit startup_oci_body_duration_ms ""
+        emit oci_new_blob_count ""
+        emit oci_new_blob_bytes ""
+        emit oci_upload_requested_blobs ""
+        emit oci_upload_already_present ""
+        emit oci_upload_batch_seconds ""
+
+        require cache_storage_bytes "$ECR_BYTES"
+        emit cache_storage_bytes "$ECR_BYTES"
+        emit cache_storage_source "ecr-describe-images"
+        emit cache_storage_breakdown_json ""
+        emit bytes_uploaded ""
+
+        if [[ "$CACHE_LANE" == "rolling" ]]; then
+          emit hit_behavior_note "Rolling lane: one continuous-commit build imports the prior ECR registry cache, exports the updated cache to the same ECR tag, and records that commit build only."
+        else
+          emit hit_behavior_note "Fresh lane: one cold build runs the pinned base tree with --no-cache while exporting cache to a run-scoped ECR tag for storage accounting, and records that build only. No second build runs inside this job."
+        fi
+      else
+        echo "Unknown strategy: ${STRATEGY}" >&2
+        exit 1
       fi
     shell: bash
   - name: Write benchmark artifacts

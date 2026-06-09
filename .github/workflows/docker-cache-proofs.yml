@@ -44,6 +44,7 @@ on:
 permissions:
   contents: read
   actions: write
+  id-token: write
 
 jobs:
   case:
@@ -67,6 +68,100 @@ jobs:
       - uses: actions/checkout@v6
       - id: case
         run: ./scripts/emit-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" "${{ inputs.build_output }}"
+
+  github-actions-cache:
+    name: GHA
+    needs: case
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
+      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-gha
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
+      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
+      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
+    steps:
+      - name: Checkout benchmark repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Run GitHub Actions Cache proof
+        uses: ./.github/actions/docker-case-benchmark
+        with:
+          strategy: actions-cache
+          cache_lane: ${{ inputs.cache_lane }}
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-gha
+          cache_id: ${{ needs.case.outputs.cache_id }}
+          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          case_id: ${{ needs.case.outputs.case_id }}
+          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
+          project_repo: ${{ needs.case.outputs.project_repo }}
+          project_ref: ${{ needs.case.outputs.project_ref }}
+          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
+          docker_context: ${{ needs.case.outputs.docker_context }}
+          image_tag: ${{ needs.case.outputs.image_tag }}
+          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
+          docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
+          build_output: ${{ inputs.build_output }}
+          runner_label: ${{ needs.case.outputs.runner_label }}
+          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
+
+  ecr-cache:
+    name: ECR
+    needs: case
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
+      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-ecr
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
+      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
+      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
+    steps:
+      - name: Checkout benchmark repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Run ECR registry cache proof
+        uses: ./.github/actions/docker-case-benchmark
+        with:
+          strategy: ecr-cache
+          cache_lane: ${{ inputs.cache_lane }}
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-ecr
+          cache_id: ${{ needs.case.outputs.cache_id }}
+          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          case_id: ${{ needs.case.outputs.case_id }}
+          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
+          project_repo: ${{ needs.case.outputs.project_repo }}
+          project_ref: ${{ needs.case.outputs.project_ref }}
+          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
+          docker_context: ${{ needs.case.outputs.docker_context }}
+          image_tag: ${{ needs.case.outputs.image_tag }}
+          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
+          docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
+          build_output: ${{ inputs.build_output }}
+          runner_label: ${{ needs.case.outputs.runner_label }}
+          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
+          ecr_region: ${{ vars.BENCHMARK_ECR_REGION || 'us-east-1' }}
+          ecr_role_arn: ${{ vars.BENCHMARK_ECR_ROLE_ARN }}
+          ecr_registry: ${{ vars.BENCHMARK_ECR_REGISTRY }}
+          ecr_repository: ${{ vars.BENCHMARK_ECR_REPOSITORY }}
 
   boringcache-oci:
     name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC OCI + toolcache' || 'BC OCI' }}
