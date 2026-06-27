@@ -10,6 +10,18 @@ inputs:
   buildkit_backend:
     required: false
     default: registry
+  buildkit_image:
+    description: BuildKit daemon image used by benchmark-created builders.
+    required: false
+    default: mirror.gcr.io/moby/buildkit:buildx-stable-1
+  cli_image:
+    description: Optional experiment-only image containing /usr/local/bin/boringcache. When set, the action installs that binary and passes cli-version=skip to boringcache/one.
+    required: false
+    default: ''
+  cache_export_type:
+    description: Optional override for the BuildKit cache-to type. Used by experimental BuildKit lanes such as type=boringcache.
+    required: false
+    default: ''
   benchmark_id:
     required: true
   cache_id:
@@ -114,8 +126,33 @@ runs:
         exit 1
       fi
     shell: bash
+  - name: Log in to private GHCR images
+    if: "${{ startsWith(inputs.buildkit_image, 'ghcr.io/') || startsWith(inputs.cli_image, 'ghcr.io/') }}"
+    uses: docker/login-action@v4.2.0
+    with:
+      registry: ghcr.io
+      username: "${{ env.BORINGCACHE_GHCR_READ_USER || github.actor }}"
+      password: "${{ env.BORINGCACHE_GHCR_READ_TOKEN || github.token }}"
+  - name: Install experiment BoringCache CLI image
+    if: "${{ inputs.strategy == 'boringcache' && inputs.cli_image != '' }}"
+    env:
+      BORINGCACHE_CLI_IMAGE: "${{ inputs.cli_image }}"
+    run: |
+      set -euo pipefail
+      install_dir="${RUNNER_TEMP}/boringcache-experiment-cli/bin"
+      mkdir -p "$install_dir"
+      container_id="$(docker create "$BORINGCACHE_CLI_IMAGE" /usr/local/bin/boringcache --version)"
+      cleanup() {
+        docker rm -f "$container_id" >/dev/null 2>&1 || true
+      }
+      trap cleanup EXIT
+      docker cp "${container_id}:/usr/local/bin/boringcache" "${install_dir}/boringcache"
+      chmod 0755 "${install_dir}/boringcache"
+      "${install_dir}/boringcache" --version
+      echo "$install_dir" >> "$GITHUB_PATH"
+    shell: bash
   - name: Install BoringCache CLI with boringcache/one
-    if: "${{ inputs.strategy == 'boringcache' }}"
+    if: "${{ inputs.strategy == 'boringcache' && inputs.cli_image == '' }}"
     uses: boringcache/one@v1
     with:
       setup: none
@@ -185,10 +222,12 @@ runs:
       mode: docker
       docker-command: setup
       workspace: "${{ env.BENCHMARK_WORKSPACE }}"
+      cli-version: "${{ inputs.cli_image != '' && 'skip' || '' }}"
       cache-tag: "${{ steps.scope.outputs.cache_scope }}"
       registry-tag: "${{ steps.scope.outputs.registry_proxy_tags }}"
       proxy-no-git: 'true'
       driver-opts: |
+        image=${{ inputs.buildkit_image }}
         network=host
       verbose: true
     env:
@@ -201,6 +240,7 @@ runs:
     uses: docker/setup-buildx-action@v4
     with:
       driver-opts: |
+        image=${{ inputs.buildkit_image }}
         network=host
   - name: Set up Docker Buildx
     if: "${{ inputs.strategy == 'actions-cache' || inputs.strategy == 'ecr-cache' }}"
@@ -290,6 +330,9 @@ runs:
       BORINGCACHE_DOCKER_PROMOTION_REFS: "${{ steps.docker_cache.outputs.docker-cache-promotion-refs }}"
       BUILDER: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'registry' && steps.docker_cache.outputs.buildx-name || steps.buildx.outputs.name || '' }}"
       TOOL_CACHE_BUILDER: "${{ steps.tool_cache_buildx.outputs.name }}"
+      BORINGCACHE_CACHE_EXPORT_TYPE: "${{ inputs.cache_export_type }}"
+      BORINGCACHE_MANAGED_BUILDKIT_IMAGE: "${{ inputs.buildkit_image }}"
+      BUILDKIT_IMAGE: "${{ inputs.buildkit_image }}"
       CACHE_FROM: "${{ steps.docker_cache.outputs.cache-from }}"
       CACHE_TO: "${{ steps.docker_cache.outputs.cache-to }}"
       CACHE_SCOPE: "${{ steps.scope.outputs.cache_scope }}"
@@ -569,7 +612,7 @@ runs:
       fetch-depth: 1
       path: .benchmark-config
   - name: Install BoringCache CLI with boringcache/one
-    if: "${{ inputs.strategy == 'boringcache' }}"
+    if: "${{ inputs.strategy == 'boringcache' && inputs.cli_image == '' }}"
     uses: boringcache/one@v1
     with:
       setup: none

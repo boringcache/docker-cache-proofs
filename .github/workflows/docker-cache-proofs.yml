@@ -41,10 +41,21 @@ on:
           - none
           - load
           - local-registry
+      prewarm_buildkit_image:
+        description: "Optional experimental BuildKit image for the BoringCache backend lane. Requires prewarm_cli_image."
+        required: false
+        type: string
+        default: ""
+      prewarm_cli_image:
+        description: "Optional experimental BoringCache CLI image containing /usr/local/bin/boringcache."
+        required: false
+        type: string
+        default: ""
 permissions:
   contents: read
   actions: write
   id-token: write
+  packages: read
 
 jobs:
   case:
@@ -214,6 +225,65 @@ jobs:
           runner_label: ${{ needs.case.outputs.runner_label }}
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
+
+  boringcache-buildkit-backend:
+    name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC BuildKit Backend + toolcache' || 'BC BuildKit Backend' }}
+    needs: case
+    if: ${{ github.event_name != 'pull_request' && (inputs.prewarm_buildkit_image != '' || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE != '') && (inputs.prewarm_cli_image != '' || vars.DOCKER_CACHE_PROOFS_PREWARM_CLI_IMAGE != '') }}
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_GHCR_READ_USER: ${{ vars.BORINGCACHE_GHCR_READ_USER || github.actor }}
+      BORINGCACHE_GHCR_READ_TOKEN: ${{ secrets.BORINGCACHE_GHCR_READ_TOKEN }}
+      PROJECT_REPO: ${{ needs.case.outputs.project_repo }}
+      PROJECT_REF: ${{ needs.case.outputs.project_ref }}
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+      BENCHMARK_ID: ${{ needs.case.outputs.benchmark_id }}-bc-buildkit
+      CACHE_ID: ${{ needs.case.outputs.cache_id }}-buildkit
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      CACHE_LANE: ${{ inputs.cache_lane }}
+      BUILDKIT_BACKEND: registry
+      CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
+      DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
+      BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
+    steps:
+      - name: Checkout benchmark repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache BuildKit Backend + toolcache proof' || 'Run BoringCache BuildKit Backend proof' }}
+        uses: ./.github/actions/docker-case-benchmark
+        with:
+          strategy: boringcache
+          buildkit_backend: registry
+          cache_lane: ${{ inputs.cache_lane }}
+          benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-buildkit
+          cache_id: ${{ needs.case.outputs.cache_id }}-buildkit
+          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          case_id: ${{ needs.case.outputs.case_id }}
+          case_ref_key: ${{ needs.case.outputs.case_ref_key }}
+          project_repo: ${{ needs.case.outputs.project_repo }}
+          project_ref: ${{ needs.case.outputs.project_ref }}
+          dockerfile_path: ${{ needs.case.outputs.dockerfile_path }}
+          docker_context: ${{ needs.case.outputs.docker_context }}
+          image_tag: ${{ needs.case.outputs.image_tag }}
+          docker_build_extra_args: ${{ needs.case.outputs.docker_build_extra_args }}
+          docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
+          build_output: ${{ inputs.build_output }}
+          runner_label: ${{ needs.case.outputs.runner_label }}
+          free_disk_space: ${{ needs.case.outputs.free_disk_space }}
+          benchmark_workspace: boringcache/docker-cache-proof
+          buildkit_image: ${{ inputs.prewarm_buildkit_image || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
+          cli_image: ${{ inputs.prewarm_cli_image || vars.DOCKER_CACHE_PROOFS_PREWARM_CLI_IMAGE }}
+          cache_export_type: boringcache
+
   boringcache-native:
     name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC Native + toolcache' || 'BC Native' }}
     needs: case
