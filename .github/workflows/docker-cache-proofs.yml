@@ -42,12 +42,12 @@ on:
           - load
           - local-registry
       prewarm_buildkit_image:
-        description: "Optional experimental BuildKit image for the BoringCache backend lane. Requires prewarm_cli_image."
+        description: "Optional experimental BuildKit image for the BoringCache backend lane."
         required: false
         type: string
         default: ""
       prewarm_cli_image:
-        description: "Optional experimental BoringCache CLI image containing /usr/local/bin/boringcache."
+        description: "Optional experimental BoringCache CLI image. Defaults to boringcache/one."
         required: false
         type: string
         default: ""
@@ -229,7 +229,7 @@ jobs:
   boringcache-buildkit-backend:
     name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC BuildKit Backend + toolcache' || 'BC BuildKit Backend' }}
     needs: case
-    if: ${{ github.event_name != 'pull_request' && (inputs.prewarm_buildkit_image != '' || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE != '') && (inputs.prewarm_cli_image != '' || vars.DOCKER_CACHE_PROOFS_PREWARM_CLI_IMAGE != '') }}
+    if: ${{ github.event_name != 'pull_request' && (inputs.prewarm_buildkit_image != '' || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE != '') }}
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
     env:
