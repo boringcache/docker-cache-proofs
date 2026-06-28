@@ -851,10 +851,10 @@ runs:
         cache_summary_args=(--cache-session-summary-json benchmark-session-summary/benchmark-session-summary.json)
       fi
       native_tool_args=()
-      if [[ -s benchmark-native-tool/native-tool.json ]]; then
-        native_tool_args=(--native-tool-evidence-json benchmark-native-tool/native-tool.json)
-      elif [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
+      if [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
         native_tool_args=(--native-tool sccache --sccache-stats-file benchmark-native-tool/sccache-stats.txt)
+      elif [[ -s benchmark-native-tool/native-tool.json ]]; then
+        native_tool_args=(--native-tool-evidence-json benchmark-native-tool/native-tool.json)
       fi
 
       .benchmark-config/scripts/write-benchmark-artifacts.sh \
