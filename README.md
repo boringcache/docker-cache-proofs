@@ -10,7 +10,7 @@ The GitHub repository is `boringcache/docker-cache-proofs`. The live BoringCache
 
 Docker proof lanes should stay simple by default: build the upstream Dockerfile with BoringCache's Docker cache path and keep the case runnable. If the upstream pain is Docker plus real compile or task work inside `RUN` steps, add a separate static hybrid lane such as `*-sccache` that uses `docker.tool_cache`; do not make tool-cache a manual dispatch knob and do not fold speculative tooling into the base Docker lane.
 
-The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, ECR registry cache in `us-east-1`, BoringCache OCI proxy cache, and BoringCache native BuildKit cache so every Docker case has the same cold/rolling comparison surface.
+The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, ECR registry cache in `us-east-1`, BoringCache OCI proxy cache, BoringCache native BuildKit cache, and the experimental BoringCache BuildKit backend so every Docker case has the same cold/rolling comparison surface.
 
 ## Docker Cases
 
