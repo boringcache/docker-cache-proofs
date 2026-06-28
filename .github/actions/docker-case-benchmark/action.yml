@@ -385,6 +385,11 @@ runs:
             mkdir -p benchmark-native-tool
             cp "$native_tool_evidence" benchmark-native-tool/native-tool.json
           fi
+          sccache_stats_file="$(grep "^sccache_stats_file=" "$metrics_file" | head -n1 | cut -d= -f2- || true)"
+          if [[ -n "$sccache_stats_file" && -s "$sccache_stats_file" ]]; then
+            mkdir -p benchmark-native-tool
+            cp "$sccache_stats_file" benchmark-native-tool/sccache-stats.txt
+          fi
         fi
       else
         build_log="$(mktemp /tmp/${BENCHMARK_ID}-ac-build.XXXXXX.log)"
