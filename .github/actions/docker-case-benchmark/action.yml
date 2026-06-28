@@ -248,6 +248,7 @@ runs:
     uses: docker/setup-buildx-action@v4
     with:
       driver-opts: |
+        image=${{ inputs.buildkit_image }}
         network=host
   - name: Validate ECR inputs
     if: "${{ inputs.strategy == 'ecr-cache' }}"
@@ -428,6 +429,11 @@ runs:
         while true; do
           extra_args=()
           output_args=()
+          if [[ -n "${DOCKER_TOOL_CACHE:-}" ]]; then
+            neutral_tool_cache_env="${RUNNER_TEMP}/neutral-boringcache-tool-cache.env"
+            printf '# Neutral tool-cache env for non-BoringCache controls.\n' > "$neutral_tool_cache_env"
+            extra_args+=(--secret "id=boringcache-tool-cache-env,src=${neutral_tool_cache_env}")
+          fi
           while IFS= read -r arg; do
             [[ -n "$arg" ]] || continue
             extra_args+=("$arg")
