@@ -276,7 +276,7 @@ jobs:
           free_disk_space: ${{ needs.case.outputs.free_disk_space }}
           benchmark_workspace: boringcache/docker-cache-proof
           buildkit_image: ${{ inputs.prewarm_buildkit_image || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
-          cache_export_type: boringcache
+          buildkit_cache_backend: boringcache
 
   boringcache-native:
     name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC Native + toolcache' || 'BC Native' }}
