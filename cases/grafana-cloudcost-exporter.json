@@ -1,0 +1,28 @@
+{
+  "id": "grafana-cloudcost-exporter",
+  "name": "Grafana cloudcost-exporter Docker build",
+  "source": {
+    "repo": "grafana/cloudcost-exporter",
+    "pain_url": "https://github.com/grafana/cloudcost-exporter/issues/1029",
+    "evidence_run": "https://github.com/grafana/cloudcost-exporter/actions/runs/28397270725",
+    "runner": "GitHub-hosted ubuntu-24.04 amd64"
+  },
+  "refs": {
+    "main": "1e4ba38956cbe8aa787fab9ddac8e9a2069af3d6",
+    "rolling1": "2a0478a62c5cecbed27c0752e54754800420cca2",
+    "rolling2": "c068434d3e007ef8e057e431970639ba0d1a8805",
+    "rolling3": "6e3eab0a0c04d256e8899fbf91948f0514f790d5",
+    "rolling4": "ee1ac8cd41fa5040e0a35449759ff1a084a900a7"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile",
+    "image": "grafana-cloudcost-exporter",
+    "platform": "linux/amd64",
+    "original_cache": "type=gha,mode=max through Grafana shared Docker build action"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-24.04",
+    "free_disk_space": false
+  }
+}

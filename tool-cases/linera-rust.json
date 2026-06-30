@@ -1,0 +1,40 @@
+{
+  "id": "linera-rust",
+  "name": "Linera Rust clippy cache proof",
+  "adapter": "rust-sccache",
+  "source": {
+    "repo": "linera-io/linera-protocol",
+    "pain_url": "https://github.com/linera-io/linera-protocol/issues/5475",
+    "workflow_url": "https://github.com/linera-io/linera-protocol/actions/workflows/rust.yml",
+    "evidence_run": "https://github.com/linera-io/linera-protocol/actions/runs/28472150240",
+    "readiness": "proof-needed"
+  },
+  "refs": {
+    "main": "d31939b59c1343870439114fe3a441136450f03e",
+    "rolling1": "36d68ca74fa3b4597e9fb11dc68a18c8866953c4",
+    "rolling2": "33fb334d76b1722ea8d0f69e8ac5141a20969268",
+    "rolling3": "4d0261dfd1a17024c7afb876abe4ceee5be403c5",
+    "rolling4": "8edf6b08650a1e3121ef604e0428e8f318651ae4"
+  },
+  "tool": {
+    "rust_toolchain": "1.95.0",
+    "working_directory": ".",
+    "measured_command": "CARGO_INCREMENTAL=0 RUSTFLAGS='-D warnings' RUSTDOCFLAGS='-A rustdoc::redundant_explicit_links -D warnings' cargo clippy --locked --all-targets --all-features --workspace",
+    "setup_apt_packages": [
+      "unzip"
+    ],
+    "setup_commands": [
+      "rustup target add wasm32-unknown-unknown",
+      "rustup component add clippy rustfmt rust-src",
+      "curl -fsSL -o /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-linux-x86_64.zip",
+      "sudo unzip -o /tmp/protoc.zip -d /usr/local",
+      "protoc --version"
+    ],
+    "notes": "Linera issue 5475 says the GitHub Actions Rust cache is effectively cold across PR, merge_queue, and push refs. This proof mirrors the ubuntu-latest clippy job rather than self-hosted or service-backed jobs so sccache hit quality can be isolated first."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true,
+    "timeout_minutes": 240
+  }
+}

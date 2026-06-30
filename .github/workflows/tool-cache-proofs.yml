@@ -14,6 +14,7 @@ on:
           - besu-gradle
           - josh-rust-container
           - kvrocks-cpp-sccache
+          - linera-rust
           - therock-prim-sccache
           - tiny-congress-rust
           - z3wire-bazel-devcontainer

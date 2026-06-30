@@ -14,6 +14,7 @@ on:
           - wormhole-solana
           - cardstack-realm-server
           - dependabot-updater-core
+          - grafana-cloudcost-exporter
           - iggy-rust-server
           - iggy-rust-server-sccache
           - kvrocks-docker
