@@ -82,6 +82,10 @@ inputs:
   cli_platform:
     required: false
     default: linux-amd64
+  boringcache_cli_version:
+    description: BoringCache CLI release to install through boringcache/one.
+    required: false
+    default: v1.13.77
   benchmark_workspace:
     required: false
     default: ''
@@ -138,6 +142,7 @@ runs:
     uses: boringcache/one@v1
     with:
       setup: none
+      cli-version: "${{ inputs.boringcache_cli_version }}"
       mode: archive
       workspace: "${{ env.BENCHMARK_WORKSPACE }}"
       cli-platform: "${{ inputs.cli_platform }}"
@@ -200,6 +205,7 @@ runs:
     uses: boringcache/one@v1
     with:
       setup: none
+      cli-version: "${{ inputs.boringcache_cli_version }}"
       cache-runtime: false
       mode: docker
       docker-command: setup
@@ -609,6 +615,7 @@ runs:
     uses: boringcache/one@v1
     with:
       setup: none
+      cli-version: "${{ inputs.boringcache_cli_version }}"
       mode: archive
       workspace: "${{ env.BENCHMARK_WORKSPACE }}"
       cli-platform: "${{ inputs.cli_platform }}"
