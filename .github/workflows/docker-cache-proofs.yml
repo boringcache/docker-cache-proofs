@@ -15,6 +15,7 @@ on:
           - cardstack-realm-server
           - dependabot-updater-core
           - dokploy-cloud
+          - dokploy-cloud-optimized
           - dokploy-server
           - dokploy-schedule
           - iggy-rust-server
