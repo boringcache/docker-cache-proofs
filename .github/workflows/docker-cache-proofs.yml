@@ -50,6 +50,11 @@ on:
         required: false
         type: string
         default: ""
+      enable_mountcache:
+        description: "Enable the gated BuildKit cache-mount archive offloader for the BoringCache backend lane."
+        required: false
+        type: boolean
+        default: false
 permissions:
   contents: read
   actions: write
@@ -304,6 +309,7 @@ jobs:
       BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
       CACHE_LANE: ${{ inputs.cache_lane }}
       BUILDKIT_BACKEND: registry
+      BORINGCACHE_BUILDKIT_MOUNTCACHE_OFFLOADER: ${{ inputs.enable_mountcache && '1' || '' }}
       CACHE_SCOPE_SUFFIX: -${{ needs.case.outputs.case_id }}
       DOCKER_BUILD_EXTRA_ARGS: ${{ needs.case.outputs.docker_build_extra_args }}
       BENCHMARK_BUILD_OUTPUT: ${{ inputs.build_output }}
