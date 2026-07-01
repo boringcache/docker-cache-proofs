@@ -14,6 +14,9 @@ on:
           - wormhole-solana
           - cardstack-realm-server
           - dependabot-updater-core
+          - dokploy-cloud
+          - dokploy-server
+          - dokploy-schedule
           - iggy-rust-server
           - iggy-rust-server-sccache
           - kvrocks-docker

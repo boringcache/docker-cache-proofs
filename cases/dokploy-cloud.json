@@ -1,0 +1,34 @@
+{
+  "id": "dokploy-cloud",
+  "name": "Dokploy cloud image",
+  "source": {
+    "repo": "Dokploy/dokploy",
+    "pain_url": "https://github.com/Dokploy/dokploy/actions/runs/28479821256/job/84413345216",
+    "evidence_run": "https://github.com/Dokploy/dokploy/actions/runs/28479821256",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "refs": {
+    "main": "c2a95870f5815d0cf6066ce466cbe7bb6519314f",
+    "rolling1": "aa720913165ffb924da26ef1177ea407ab6cc55f",
+    "rolling2": "e32133d9a6fad8bbdfd47f4ab3d4423c7a02a858",
+    "rolling3": "ec9dd289244ba24af0fc4e1d9590fc99eb56b64e",
+    "rolling4": "8d44c6a1e81a133f7daf39babc4455e1802d5998",
+    "rolling5": "6431e9b7b0e97f6319051d42768cc3f90c367c00",
+    "rolling6": "1bf661b621829f43f895c9b68a1e15f89cdc6c5c",
+    "rolling7": "d87229ccd3bc6f9d14e2b52eeeb6ef57ae6181ec"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile.cloud",
+    "image": "dokploy-cloud",
+    "platform": "linux/amd64",
+    "build_args": [
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_boringcache_dokploy_benchmark"
+    ],
+    "original_cache": "none; upstream uses ephemeral BuildKit pnpm cache mounts on GitHub-hosted runners"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": false
+  }
+}
