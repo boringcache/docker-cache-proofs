@@ -1,0 +1,36 @@
+{
+  "id": "uutils-coreutils-sccache",
+  "name": "uutils coreutils Rust/sccache rate-limit proof",
+  "adapter": "rust-sccache",
+  "source": {
+    "repo": "uutils/coreutils",
+    "pain_url": "https://github.com/uutils/coreutils/issues/10347",
+    "workflow_url": "https://github.com/uutils/coreutils/actions/workflows/make.yml",
+    "evidence_run": "https://github.com/uutils/coreutils/actions/runs/28446612670",
+    "readiness": "proof-needed"
+  },
+  "refs": {
+    "main": "77933aeae360abe1272e4989e02d188703073182",
+    "rolling1": "5a1d3e64b2a8f932f09a435687fc478391db9374",
+    "rolling2": "bb8f7095fd63206ff54a4fb4256375e9e1ad88c9",
+    "rolling3": "85c3182ec6bd7dae982bb8a7455cc9e62d522020",
+    "rolling4": "b64a26e1fffcf44901845e50efc2c0755f188460"
+  },
+  "tool": {
+    "rust_toolchain": "1.96.0",
+    "working_directory": ".",
+    "measured_command": "make build\nmake nextest PROFILE=ci CARGOFLAGS=\"--hide-progress-bar\"",
+    "setup_apt_packages": [],
+    "setup_commands": [
+      "curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C \"${CARGO_HOME:-$HOME/.cargo}/bin\"",
+      "cargo nextest --version"
+    ],
+    "sccache_stats_source": "host",
+    "notes": "uutils issue 10347 is still open and documents GitHub Actions Cache rate-limit pressure, including 200 uploads/minute, 10 GB cache pressure on forks, and duplicate Swatinem/rust-cache plus sccache usage. This proof mirrors the Ubuntu make workflow's compile-heavy path by running make build followed by make nextest, while leaving release packaging and artifact-comment steps out of the cache proof."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": false,
+    "timeout_minutes": 180
+  }
+}

@@ -39,6 +39,7 @@ Use the `Tool Cache Proof` workflow for prospect-shaped adapter runs that are no
 | `linera-rust` | Rust/sccache | [Linera cache issue](https://github.com/linera-io/linera-protocol/issues/5475): Rust cache is reported as 100% non-functional across PR, merge queue, and push refs with about 150 CPU-minutes per workflow. | High-priority proof-needed prospect. |
 | `therock-prim-sccache` | C++/CMake sccache | [TheRock ccache miss issue](https://github.com/ROCm/TheRock/issues/5009): current ROCm build pain around restaged headers causing downstream compiler-cache misses; TheRock also tracks HIP/sccache integration. | High-value compiler-cache proof; not a generic Docker lane. |
 | `tiny-congress-rust` | Rust/sccache | [Tiny Congress PR](https://github.com/icook/tiny-congress/pull/683): ARC runners plus Garage S3-backed sccache. | Reference proof; they already built a workaround. |
+| `uutils-coreutils-sccache` | Rust/sccache | [uutils cache-rate issue](https://github.com/uutils/coreutils/issues/10347): open issue with GitHub staff/Mozilla involvement, 200 uploads/minute pressure, 10 GB fork-cache pressure, and duplicate Rust cache plus sccache usage. | Proof-needed downstream case; useful for Mozilla/sccache-action channel proof. |
 
 ## Manual Runs
 
@@ -59,7 +60,7 @@ Use the tool-cache lane in the `Tool Cache Proof` workflow with:
 
 - `cache_lane=fresh` for one pinned source build with a per-run cache tag;
 - `cache_lane=rolling` for one commit build against a stable rolling cache tag;
-- `case_id=aranya-rust`, `besu-gradle`, `josh-rust-container`, `kvrocks-cpp-sccache`, `therock-prim-sccache`, or `tiny-congress-rust`.
+- `case_id=aranya-rust`, `besu-gradle`, `josh-rust-container`, `kvrocks-cpp-sccache`, `therock-prim-sccache`, `tiny-congress-rust`, or `uutils-coreutils-sccache`.
 
 For ordered fresh + rolling runs:
 

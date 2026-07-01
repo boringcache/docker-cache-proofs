@@ -17,6 +17,7 @@ on:
           - linera-rust
           - therock-prim-sccache
           - tiny-congress-rust
+          - uutils-coreutils-sccache
           - z3wire-bazel-devcontainer
       ref_key:
         description: Pinned case ref
