@@ -1,0 +1,240 @@
+name: Archive Cache Proof
+run-name: >-
+  ${{ format('{0} | {1} | inventory + BC archive smoke', inputs.case_id, inputs.ref_key) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Archive/cache case to inventory
+        required: true
+        type: choice
+        options:
+          - brightdigit-syntaxkit
+          - cupy-pretest-cache
+      ref_key:
+        description: Pinned case ref
+        required: true
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inventory:
+    name: Inventory / GHA cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      archive_sample_entries: ${{ steps.case.outputs.archive_sample_entries }}
+      archive_sample_entry_count: ${{ steps.case.outputs.archive_sample_entry_count }}
+      project_repo: ${{ steps.case.outputs.project_repo }}
+      project_ref: ${{ steps.case.outputs.project_ref }}
+    env:
+      GH_TOKEN: ${{ secrets.BENCHMARK_GITHUB_TOKEN || github.token }}
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Resolve archive case
+        id: case
+        run: ./scripts/emit-archive-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}"
+
+      - name: Collect GitHub Actions cache inventory
+        run: ./scripts/collect-archive-cache-inventory.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" archive-results
+
+      - name: Publish summary
+        run: |
+          set -euo pipefail
+          summary="archive-results/${{ inputs.case_id }}-${{ inputs.ref_key }}-archive-inventory.json"
+          {
+            echo "### Archive cache inventory"
+            echo
+            echo "- Case: \`${{ inputs.case_id }}\`"
+            echo "- Repository: \`${{ steps.case.outputs.project_repo }}\`"
+            echo "- Ref: \`${{ steps.case.outputs.project_ref }}\`"
+            echo "- Pain: ${{ steps.case.outputs.pain_url }}"
+            echo "- Proof context: ${{ steps.case.outputs.proof_url }}"
+            echo
+            jq -r '
+              "- Total: \(.total_count) entries / \(.total_size_in_bytes) bytes",
+              "- Expected baseline: \(.expected_total_bytes) bytes",
+              "",
+              "| Category | Entries | Bytes |",
+              "|---|---:|---:|",
+              (.categories[] | "| \(.label) | \(.count) | \(.size_in_bytes) |"),
+              "| Uncategorized | \(.uncategorized | length) | \((.uncategorized | map(.sizeInBytes // 0) | add) // 0) |"
+            ' "$summary"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload archive inventory
+        uses: actions/upload-artifact@v6
+        with:
+          name: archive-cache-inventory-${{ inputs.case_id }}-${{ inputs.ref_key }}
+          path: archive-results/
+          if-no-files-found: error
+
+  bc-archive-seed:
+    name: BC archive seed / ${{ matrix.entry.name }}
+    needs: inventory
+    if: ${{ needs.inventory.outputs.archive_sample_entry_count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.inventory.outputs.archive_sample_entries) }}
+    env:
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      ARCHIVE_KEY: archive-smoke-${{ inputs.case_id }}-${{ inputs.ref_key }}-${{ matrix.entry.name }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Validate BoringCache archive secrets
+        run: |
+          set -euo pipefail
+          [[ -n "${BORINGCACHE_RESTORE_TOKEN}" ]] || { echo "Missing BORINGCACHE_RESTORE_TOKEN secret" >&2; exit 1; }
+          [[ -n "${BORINGCACHE_SAVE_TOKEN}" ]] || { echo "Missing BORINGCACHE_SAVE_TOKEN secret" >&2; exit 1; }
+
+      - name: Restore BoringCache archive seed key
+        id: bc_seed
+        uses: boringcache/one@v1
+        with:
+          setup: none
+          mode: archive
+          workspace: ${{ env.BENCHMARK_WORKSPACE }}
+          cache-runtime: false
+          path: ${{ matrix.entry.path }}
+          key: ${{ env.ARCHIVE_KEY }}
+          diagnostics: summary
+
+      - name: Prepare representative archive payload
+        run: >-
+          ./scripts/prepare-archive-sample-payload.sh
+          "${{ inputs.case_id }}"
+          "${{ inputs.ref_key }}"
+          "${{ matrix.entry.name }}"
+          "${{ matrix.entry.path }}"
+          "${{ matrix.entry.size_mib }}"
+          archive-results
+
+      - name: Capture pre-save BoringCache archive evidence
+        if: ${{ steps.bc_seed.outputs.evidence-path != '' }}
+        run: |
+          set -euo pipefail
+          cp "${{ steps.bc_seed.outputs.evidence-path }}" "archive-results/${{ inputs.case_id }}-${{ inputs.ref_key }}-${{ matrix.entry.name }}-boringcache-seed-restore-evidence.json"
+
+      - name: Publish seed summary
+        run: |
+          {
+            echo "### BoringCache archive seed"
+            echo
+            echo "- Case: \`${{ inputs.case_id }}\`"
+            echo "- Entry: \`${{ matrix.entry.name }}\`"
+            echo "- Path: \`${{ matrix.entry.path }}\`"
+            echo "- Key: \`${ARCHIVE_KEY}\`"
+            echo "- Seed restore hit before save: \`${{ steps.bc_seed.outputs.cache-hit }}\`"
+            echo "- Sample size: \`${{ matrix.entry.size_mib }} MiB\`"
+            echo
+            echo "This is a functional restore/save smoke for BoringCache archive mode, not a scale or wall-clock proof."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload archive seed manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: archive-cache-seed-${{ inputs.case_id }}-${{ inputs.ref_key }}-${{ matrix.entry.name }}
+          path: archive-results/
+          if-no-files-found: error
+
+  bc-archive-restore:
+    name: BC archive restore / ${{ matrix.entry.name }}
+    needs:
+      - inventory
+      - bc-archive-seed
+    if: ${{ needs.inventory.outputs.archive_sample_entry_count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.inventory.outputs.archive_sample_entries) }}
+    env:
+      BENCHMARK_WORKSPACE: boringcache/docker-cache-proof
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      ARCHIVE_KEY: archive-smoke-${{ inputs.case_id }}-${{ inputs.ref_key }}-${{ matrix.entry.name }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Validate BoringCache restore secret
+        run: |
+          set -euo pipefail
+          [[ -n "${BORINGCACHE_RESTORE_TOKEN}" ]] || { echo "Missing BORINGCACHE_RESTORE_TOKEN secret" >&2; exit 1; }
+
+      - name: Restore BoringCache archive read-only
+        id: bc_restore
+        uses: boringcache/one@v1
+        with:
+          setup: none
+          mode: archive
+          workspace: ${{ env.BENCHMARK_WORKSPACE }}
+          cache-runtime: false
+          path: ${{ matrix.entry.path }}
+          key: ${{ env.ARCHIVE_KEY }}
+          read-only: true
+          save-policy: off
+          fail-on-cache-miss: true
+          diagnostics: summary
+
+      - name: Capture BoringCache archive restore evidence
+        if: ${{ steps.bc_restore.outputs.evidence-path != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p archive-results
+          cp "${{ steps.bc_restore.outputs.evidence-path }}" "archive-results/${{ inputs.case_id }}-${{ inputs.ref_key }}-${{ matrix.entry.name }}-boringcache-restore-evidence.json"
+
+      - name: Verify restored archive payload
+        run: >-
+          ./scripts/verify-archive-sample-payload.sh
+          "${{ inputs.case_id }}"
+          "${{ inputs.ref_key }}"
+          "${{ matrix.entry.name }}"
+          "${{ matrix.entry.path }}"
+          archive-results
+
+      - name: Publish restore summary
+        run: |
+          {
+            echo "### BoringCache archive restore"
+            echo
+            echo "- Case: \`${{ inputs.case_id }}\`"
+            echo "- Entry: \`${{ matrix.entry.name }}\`"
+            echo "- Path: \`${{ matrix.entry.path }}\`"
+            echo "- Key: \`${ARCHIVE_KEY}\`"
+            echo "- Restore hit: \`${{ steps.bc_restore.outputs.cache-hit }}\`"
+            echo "- Read-only: \`true\`"
+            echo "- Checksum verification: \`passed\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload archive restore verification
+        uses: actions/upload-artifact@v6
+        with:
+          name: archive-cache-restore-${{ inputs.case_id }}-${{ inputs.ref_key }}-${{ matrix.entry.name }}
+          path: archive-results/
+          if-no-files-found: error

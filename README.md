@@ -38,6 +38,21 @@ Use the `Tool Cache Proof` workflow for prospect-shaped adapter runs that are no
 | `therock-prim-sccache` | C++/CMake sccache | [TheRock ccache miss issue](https://github.com/ROCm/TheRock/issues/5009): current ROCm build pain around restaged headers causing downstream compiler-cache misses; TheRock also tracks HIP/sccache integration. | High-value compiler-cache proof; not a generic Docker lane. |
 | `tiny-congress-rust` | Rust/sccache | [Tiny Congress PR](https://github.com/icook/tiny-congress/pull/683): ARC runners plus Garage S3-backed sccache. | Reference proof; they already built a workaround. |
 
+## Archive Cache Cases
+
+Use the `Archive Cache Proof` workflow for suite/cache-retention prospects whose
+pain is GitHub's 10 GB cache pressure, low-value saves, or large tool/runtime
+blobs rather than a Docker image build. The workflow first inventories current
+GitHub Actions cache keys and sizes, then runs a small BoringCache archive
+restore/save smoke with representative cache classes. The smoke proves archive
+product wiring and checksum restore behavior; it is not a scale, ccache, or
+wall-clock proof.
+
+| Case | Public pain | Proof source | Readiness |
+|---|---|---|---|
+| `brightdigit-syntaxkit` | [brightdigit/swift-build#114](https://github.com/brightdigit/swift-build/issues/114): Swift/Android matrix caches exceed GitHub's 10 GiB repo cache limit even after cleanup workflows. | [SyntaxKit PR #106](https://github.com/brightdigit/SyntaxKit/pull/106); inventory tracks SPM, Android emulator, Swift toolchain, and Xcode cache classes. | Inventory + archive smoke only; full promotion needs BC restore/save timings at realistic sizes and matrix stability. |
+| `cupy-pretest-cache` | [cupy/cupy#10059](https://github.com/cupy/cupy/issues/10059): pretest and CUDA toolkit caches have low hit value and consume the 10 GB repo cache limit. | [CuPy PR #10049](https://github.com/cupy/cupy/pull/10049); inventory tracks `mini-ctk-*`, `build-cuda-*`, and `static-checks` cache classes. | Inventory + archive smoke only; full promotion needs CUDA/pretest restore/save timing and ccache hit/miss evidence. |
+
 ## Manual Runs
 
 Use the Docker lane in the `Docker Cache Proof` workflow with:
@@ -64,4 +79,11 @@ For ordered fresh + rolling runs:
 ```bash
 scripts/dispatch-proof-series.sh --case phentrieve-api --build-output none
 scripts/dispatch-tool-proof-series.sh --case aranya-rust
+```
+
+For archive inventory plus BoringCache archive smoke:
+
+```bash
+scripts/dispatch-archive-proof-series.sh --case brightdigit-syntaxkit
+scripts/dispatch-archive-proof-series.sh --case cupy-pretest-cache
 ```
