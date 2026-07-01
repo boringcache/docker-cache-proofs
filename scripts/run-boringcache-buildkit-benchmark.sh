@@ -9,6 +9,14 @@ max_attempts=1
 cache_export_pattern='expected sha256:.*got sha256:e3b0|error writing layer blob|400 Bad Request|broken pipe'
 mode="${1:-rolling}"
 backend="${BUILDKIT_BACKEND:-registry}"
+case "$backend" in
+  registry)
+    ;;
+  *)
+    echo "Unsupported BUILDKIT_BACKEND: ${backend}" >&2
+    exit 1
+    ;;
+esac
 buildkit_cache_backend="${BORINGCACHE_BUILDKIT_CACHE_BACKEND:-${BORINGCACHE_CACHE_EXPORT_TYPE:-}}"
 cache_export_type="$buildkit_cache_backend"
 effective_cache_to=""
@@ -21,9 +29,6 @@ allow_rolling_bootstrap="${ALLOW_BORINGCACHE_ROLLING_BOOTSTRAP:-false}"
 build_output="${BENCHMARK_BUILD_OUTPUT:-none}"
 docker_tool_cache="${DOCKER_TOOL_CACHE:-}"
 oci_hydration="${BORINGCACHE_OCI_HYDRATION:-metadata-only}"
-native_tool_evidence_dir="$(mktemp -d /tmp/boringcache-native-tool.XXXXXX)"
-chmod 0777 "$native_tool_evidence_dir" 2>/dev/null || true
-native_tool_evidence_path="${native_tool_evidence_dir}/native-tool.json"
 export BORINGCACHE_OBSERVABILITY_INCLUDE_CACHE_OPS="${BORINGCACHE_OBSERVABILITY_INCLUDE_CACHE_OPS:-1}"
 start_proxy() { :; }
 stop_proxy() { :; }
@@ -148,14 +153,6 @@ write_build_metrics() {
   if [[ -n "${BORINGCACHE_OCI_STREAM_THROUGH_MIN_BYTES:-}" ]]; then
     echo "oci_stream_through_min_bytes=${BORINGCACHE_OCI_STREAM_THROUGH_MIN_BYTES}" >> "$output_path"
   fi
-  if [[ "$backend" == "native" ]]; then
-    echo "buildkit_backend=native" >> "$output_path"
-    if [[ -s "$native_tool_evidence_path" ]]; then
-      echo "native_tool_evidence=$native_tool_evidence_path" >> "$output_path"
-      append_native_tool_metrics "$native_tool_evidence_path" || true
-    fi
-  fi
-
   if [[ -s "$status_snapshot_path" ]] && command -v jq >/dev/null 2>&1; then
     append_status_metric() {
       local key="$1"
@@ -409,12 +406,6 @@ write_build_diagnostics() {
     grep -E '^#[0-9]+ DONE [0-9]+(\.[0-9]+)?s$' "$build_log" | tail -n 80 || true
     echo "EOF"
     echo "observability_jsonl=${observability_path}"
-    echo "native_tool_evidence=${native_tool_evidence_path}"
-    if [[ -s "$native_tool_evidence_path" ]]; then
-      echo "native_tool_summary<<EOF"
-      jq -c '{restore, publisher, command, publish}' "$native_tool_evidence_path" 2>/dev/null || cat "$native_tool_evidence_path"
-      echo "EOF"
-    fi
     if [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
       echo "sccache_stats<<EOF"
       cat benchmark-native-tool/sccache-stats.txt
@@ -429,55 +420,6 @@ write_build_diagnostics() {
       echo "EOF"
     fi
   } > "$output_path"
-}
-
-run_native_build() {
-  local phase_hint="cold"
-  if [[ "$mode" == "rolling" ]]; then
-    phase_hint="commit"
-  fi
-
-  local boringcache_args=(
-    boringcache docker
-    --workspace "${BENCHMARK_WORKSPACE:?Set BENCHMARK_WORKSPACE}"
-    --tag "${CACHE_SCOPE:?Set CACHE_SCOPE}"
-    --backend native
-    --port "$proxy_port"
-    --cache-mode max
-    --no-platform
-    --no-git
-    --oci-hydration "$oci_hydration"
-    --metadata-hint "benchmark=${BENCHMARK_ID:-docker}"
-    --metadata-hint "phase=${phase_hint}"
-    --metadata-hint "lane=${CACHE_LANE:-fresh}"
-    --metadata-hint "backend=native"
-    --native-tool-evidence-json "$native_tool_evidence_path"
-    --fail-on-cache-error
-  )
-  boringcache_args+=("${tool_cache_args[@]}")
-  local boringcache_bin
-  boringcache_bin="$(command -v boringcache)"
-  local boringcache_cmd=("$boringcache_bin")
-
-  local builder_args=()
-  if [[ -n "${BUILDER:-}" ]]; then
-    builder_args=(--builder "$BUILDER")
-  fi
-
-  : > "$build_log"
-  set +e
-  DOCKER_BUILDKIT=1 BORINGCACHE_TIMING_TRACE=1 "${boringcache_cmd[@]}" "${boringcache_args[@]:1}" -- \
-    docker buildx build \
-    "${builder_args[@]}" \
-    --file "$DOCKERFILE_PATH" \
-    --tag "$IMAGE_TAG" \
-    --progress=plain \
-    ${extra_args[@]+"${extra_args[@]}"} \
-    ${cache_args[@]+"${cache_args[@]}"} \
-    ${output_args[@]+"${output_args[@]}"} \
-    "$BENCHMARK_DOCKER_CONTEXT" 2>&1 | tee "$build_log"
-  status=${PIPESTATUS[0]}
-  set -e
 }
 
 run_registry_tool_cache_build() {
@@ -577,9 +519,7 @@ while true; do
     exit 1
   fi
 
-  if [[ "$backend" == "native" ]]; then
-    run_native_build
-  elif [[ "${#tool_cache_args[@]}" -gt 0 ]]; then
+  if [[ "${#tool_cache_args[@]}" -gt 0 ]]; then
     run_registry_tool_cache_build
   else
     require_readable_cache_import

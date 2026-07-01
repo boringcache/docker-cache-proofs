@@ -59,6 +59,10 @@ inputs:
     description: Comma- or newline-separated Docker tool-cache entries such as sccache:kvrocks-cpp. When set, the benchmark uses `boringcache docker --tool-cache` so the CLI can inject the BuildKit secret into the wrapped build.
     required: false
     default: ''
+  gha_cache_mode:
+    description: GitHub Actions BuildKit cache export mode for the GHA control lane.
+    required: false
+    default: max
   build_output:
     description: Image output mode for UX parity. none measures cache-only build; local-registry will be wired once native push emulation is ready.
     required: false
@@ -332,6 +336,7 @@ runs:
       ECR_CACHE_REF: "${{ steps.ecr_cache.outputs.cache_ref }}"
       ECR_REPOSITORY: "${{ steps.ecr_cache.outputs.repository }}"
       ECR_REGION: "${{ inputs.ecr_region }}"
+      GHA_CACHE_MODE: "${{ inputs.gha_cache_mode }}"
     run: |
       set -euo pipefail
 
@@ -385,11 +390,6 @@ runs:
         echo "build_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
         if [[ -s "$metrics_file" ]]; then
           cat "$metrics_file" >> "$GITHUB_OUTPUT"
-          native_tool_evidence="$(grep "^native_tool_evidence=" "$metrics_file" | head -n1 | cut -d= -f2- || true)"
-          if [[ "$BUILDKIT_BACKEND" == "native" && -n "$native_tool_evidence" && -s "$native_tool_evidence" ]]; then
-            mkdir -p benchmark-native-tool
-            cp "$native_tool_evidence" benchmark-native-tool/native-tool.json
-          fi
           sccache_stats_file="$(grep "^sccache_stats_file=" "$metrics_file" | head -n1 | cut -d= -f2- || true)"
           if [[ -n "$sccache_stats_file" && -s "$sccache_stats_file" ]]; then
             mkdir -p benchmark-native-tool
@@ -439,11 +439,19 @@ runs:
               exit 1
               ;;
           esac
+          case "${GHA_CACHE_MODE:-max}" in
+            min | max)
+              ;;
+            *)
+              echo "Unsupported GHA cache mode: ${GHA_CACHE_MODE}" >&2
+              exit 1
+              ;;
+          esac
           if [[ "$CACHE_LANE" == "rolling" ]]; then
             if [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
               build_cache_args=(
                 --cache-from "type=gha,scope=${selected_scope}"
-                --cache-to "type=gha,mode=max,scope=${selected_scope}"
+                --cache-to "type=gha,mode=${GHA_CACHE_MODE:-max},scope=${selected_scope}"
               )
             else
               cache_ref="${ECR_CACHE_REF:?Missing ECR cache ref}:${selected_scope}"
@@ -468,7 +476,7 @@ runs:
             if [[ "${{ inputs.strategy }}" == "actions-cache" ]]; then
               build_cache_args=(
                 --no-cache
-                --cache-to "type=gha,mode=max,scope=${selected_scope}"
+                --cache-to "type=gha,mode=${GHA_CACHE_MODE:-max},scope=${selected_scope}"
               )
             else
               cache_ref="${ECR_CACHE_REF:?Missing ECR cache ref}:${selected_scope}"
@@ -585,13 +593,6 @@ runs:
       name: benchmark-session-summary-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
       path: benchmark-session-summary/benchmark-session-summary.json
       if-no-files-found: ignore
-  - name: Upload native BuildKit evidence
-    if: "${{ inputs.strategy == 'boringcache' && inputs.buildkit_backend == 'native' && always() }}"
-    uses: actions/upload-artifact@v6
-    with:
-      name: benchmark-native-tool-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}-build
-      path: benchmark-native-tool/native-tool.json
-      if-no-files-found: ignore
   - name: Upload Docker tool-cache stats
     if: "${{ inputs.strategy == 'boringcache' && inputs.docker_tool_cache != '' && always() }}"
     uses: actions/upload-artifact@v6
@@ -623,9 +624,6 @@ runs:
       mkdir -p benchmark-storage
       breakdown_path="benchmark-storage/boringcache-storage-breakdown.json"
       exact_tags=""
-      if [[ "$BUILDKIT_BACKEND" == "native" ]]; then
-        exact_tags="$tags_csv"
-      fi
       bytes="$(BORINGCACHE_STORAGE_BREAKDOWN_PATH="$breakdown_path" BORINGCACHE_EXACT_TAGS="$exact_tags" .benchmark-config/scripts/sum-boringcache-check-sizes.sh "$BENCHMARK_WORKSPACE" "$tags_csv")"
       echo "bytes=${bytes}" >> "$GITHUB_OUTPUT"
       echo "breakdown_path=${breakdown_path}" >> "$GITHUB_OUTPUT"
@@ -858,8 +856,6 @@ runs:
       native_tool_args=()
       if [[ -s benchmark-native-tool/sccache-stats.txt ]]; then
         native_tool_args=(--native-tool sccache --sccache-stats-file benchmark-native-tool/sccache-stats.txt)
-      elif [[ -s benchmark-native-tool/native-tool.json ]]; then
-        native_tool_args=(--native-tool-evidence-json benchmark-native-tool/native-tool.json)
       fi
 
       .benchmark-config/scripts/write-benchmark-artifacts.sh \
