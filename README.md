@@ -37,6 +37,7 @@ Use the `Tool Cache Proof` workflow for prospect-shaped adapter runs that are no
 | `josh-rust-container` | Rust/sccache inside Podman containers | [Josh sidecar PR](https://github.com/josh-project/josh/pull/2025): build containers have no internet, so sccache needed an R2-signing sidecar. | Strategic sidecar proof; run singly before any ordered series. |
 | `kvrocks-cpp-sccache` | C++/sccache plus Go integration tail | [Kvrocks CI optimization issue](https://github.com/apache/kvrocks/issues/2642): started from slow Go tests, then active comments called out C++ build and third-party dependency compile cost. | Multi-tool candidate; compiler-cache proof first, Docker proof adjacent. |
 | `linera-rust` | Rust/sccache | [Linera cache issue](https://github.com/linera-io/linera-protocol/issues/5475): Rust cache is reported as 100% non-functional across PR, merge queue, and push refs with about 150 CPU-minutes per workflow. | High-priority proof-needed prospect. |
+| `maplibre-native-ffi-sccache` | C++/CMake sccache with read-only restore | [MapLibre Native FFI shared sccache issue](https://github.com/maplibre/maplibre-native-ffi/issues/7): current GHA sccache backend is repo-scoped and does not help contributors; proposed model is main-only writes plus public/anonymous reads. | Trust-model proof; promotion requires the BC read-only lane to reuse compiler objects without save credentials. |
 | `therock-prim-sccache` | C++/CMake sccache | [TheRock ccache miss issue](https://github.com/ROCm/TheRock/issues/5009): current ROCm build pain around restaged headers causing downstream compiler-cache misses; TheRock also tracks HIP/sccache integration. | High-value compiler-cache proof; not a generic Docker lane. |
 | `tiny-congress-rust` | Rust/sccache | [Tiny Congress PR](https://github.com/icook/tiny-congress/pull/683): ARC runners plus Garage S3-backed sccache. | Reference proof; they already built a workaround. |
 | `uutils-coreutils-sccache` | Rust/sccache | [uutils cache-rate issue](https://github.com/uutils/coreutils/issues/10347): open issue with GitHub staff/Mozilla involvement, 200 uploads/minute pressure, 10 GB fork-cache pressure, and duplicate Rust cache plus sccache usage. | Proof-needed downstream case; useful for Mozilla/sccache-action channel proof. |
@@ -60,7 +61,7 @@ Use the tool-cache lane in the `Tool Cache Proof` workflow with:
 
 - `cache_lane=fresh` for one pinned source build with a per-run cache tag;
 - `cache_lane=rolling` for one commit build against a stable rolling cache tag;
-- `case_id=aranya-rust`, `besu-gradle`, `josh-rust-container`, `kvrocks-cpp-sccache`, `therock-prim-sccache`, `tiny-congress-rust`, or `uutils-coreutils-sccache`.
+- `case_id=aranya-rust`, `besu-gradle`, `josh-rust-container`, `kvrocks-cpp-sccache`, `maplibre-native-ffi-sccache`, `therock-prim-sccache`, `tiny-congress-rust`, or `uutils-coreutils-sccache`.
 
 For ordered fresh + rolling runs:
 

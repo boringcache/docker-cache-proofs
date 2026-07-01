@@ -851,6 +851,17 @@ sanitize_token() {
   fi
 }
 
+is_boringcache_strategy() {
+  case "$1" in
+    boringcache|boringcache-read-only)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 health_url_for_api_base() {
   local base="${1%/}"
   case "$base" in
@@ -864,7 +875,7 @@ health_url_for_api_base() {
 }
 
 collect_default_product_refs() {
-  if [[ -z "$cli_version" && "$strategy" == "boringcache" ]] && command -v boringcache >/dev/null 2>&1; then
+  if [[ -z "$cli_version" ]] && is_boringcache_strategy "$strategy" && command -v boringcache >/dev/null 2>&1; then
     local version_output
     version_output="$(boringcache --version 2>/dev/null | head -n 1 || true)"
     if [[ "$version_output" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
@@ -874,7 +885,7 @@ collect_default_product_refs() {
     fi
   fi
 
-  if [[ -z "$action_ref" && "$strategy" == "boringcache" ]]; then
+  if [[ -z "$action_ref" ]] && is_boringcache_strategy "$strategy"; then
     action_ref="boringcache/one@v1"
   fi
 
@@ -987,7 +998,7 @@ session_summary_payload_from_inputs() {
   if [[ "$run_identity" =~ ^gh-([0-9]+)-[0-9]+$ ]]; then
     display_run_identity="${BASH_REMATCH[1]}"
   fi
-  if [[ "$strategy" == "boringcache" && -n "$workspace" && -n "$token" && -n "$run_identity" ]]; then
+  if is_boringcache_strategy "$strategy" && [[ -n "$workspace" && -n "$token" && -n "$run_identity" ]]; then
     local namespace_slug="${workspace%%/*}"
     local workspace_slug="${workspace#*/}"
     if [[ -n "$namespace_slug" && -n "$workspace_slug" && "$namespace_slug" != "$workspace_slug" ]] && command -v curl >/dev/null 2>&1; then
@@ -1527,7 +1538,7 @@ steady_state_candidate="null"
 rolling_reseed_kind=""
 tiny_metadata_churn=false
 reseed_reason=""
-if [[ "$lane" == "rolling" && "$strategy" == "boringcache" ]]; then
+if [[ "$lane" == "rolling" ]] && is_boringcache_strategy "$strategy"; then
   if [[ -n "$cache_import_status" || -n "$oci_new_blob_count" ]]; then
     if [[ -n "$cache_import_status" && "$cache_import_status" != "ok" ]]; then
       rolling_reseed="null"
@@ -1556,7 +1567,7 @@ if [[ "$save_result" == "skipped-build-failed" ]]; then
   reporting_reason="measured_build_failed"
   reporting_note="The measured build command failed; timings and native-tool stats are diagnostic only."
   validity_reason="measured_build_failed"
-elif [[ "$strategy" == "boringcache" && "$lane" == "fresh" && -n "$warm1_seconds" && -n "$cache_import_status" && "$cache_import_status" != "ok" ]]; then
+elif is_boringcache_strategy "$strategy" && [[ "$lane" == "fresh" && -n "$warm1_seconds" && -n "$cache_import_status" && "$cache_import_status" != "ok" ]]; then
   warm_rerun_succeeded=false
   sample_valid=false
   reporting_mode="invalid"
@@ -1567,7 +1578,7 @@ elif [[ "$lane" == "rolling" && -n "$cache_import_status" && "$cache_import_stat
   reporting_mode="investigation_only"
   reporting_reason="rolling_cache_import_not_ok"
   reporting_note="Rolling cache import was unavailable, so this sample populated the rolling cache and is excluded from parity claims."
-elif [[ "$strategy" == "boringcache" && "$lane" == "rolling" && "$cache_import_status" == "ok" && "$buildkit_cached_steps" == "0" && ( "$mode" == "docker" || "$adapter" == "oci" ) ]]; then
+elif is_boringcache_strategy "$strategy" && [[ "$lane" == "rolling" && "$cache_import_status" == "ok" && "$buildkit_cached_steps" == "0" && ( "$mode" == "docker" || "$adapter" == "oci" ) ]]; then
   rolling_reseed="null"
   steady_state_candidate="false"
   rolling_reseed_kind="rolling_import_no_reuse"
@@ -1602,6 +1613,7 @@ strategy_label() {
   case "$1" in
     actions-cache) echo "GHA" ;;
     boringcache) echo "BC" ;;
+    boringcache-read-only) echo "BC read-only" ;;
     boringcache-target) echo "BC+target" ;;
     ecr-cache) echo "ECR" ;;
     depot-cache) echo "Depot" ;;

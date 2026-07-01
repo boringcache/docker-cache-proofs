@@ -1,0 +1,44 @@
+{
+  "id": "maplibre-native-ffi-sccache",
+  "name": "MapLibre Native FFI shared C++ sccache proof",
+  "adapter": "cpp-sccache",
+  "source": {
+    "repo": "maplibre/maplibre-native-ffi",
+    "fetch_depth": 1,
+    "pain_url": "https://github.com/maplibre/maplibre-native-ffi/issues/7",
+    "workflow_url": "https://github.com/maplibre/maplibre-native-ffi/actions/workflows/ci.yml",
+    "evidence_run": "https://github.com/maplibre/maplibre-native-ffi/actions/runs/28488224213",
+    "readiness": "trust-model-proof-needed"
+  },
+  "refs": {
+    "main": "daffe6f96c23ccb5ad6480cdb25af02bce7aee53",
+    "rolling1": "3f6e182b843d424d6124c9807d605d5964196ee8",
+    "rolling2": "4c90acfa50129b7705b6ea88fa6c9ded42508ba6",
+    "rolling3": "78962e2618473f7ccf6e94253594ddcf772e4e0e",
+    "rolling4": "d58eb01a45ce2614eab4c760a38cdde3ce54591b"
+  },
+  "tool": {
+    "mise_env": "linux-x64-vulkan",
+    "working_directory": ".",
+    "measured_command": "export PATH=\"$HOME/.local/bin:$PATH\"\nexport MISE_ENV=\"${MISE_ENV:-linux-x64-vulkan}\"\nexport SCCACHE_BASEDIRS=\"${GITHUB_WORKSPACE}\"\nexport SCCACHE_GHA_VERSION=\"${SCCACHE_GHA_VERSION:-${MISE_ENV%-*}}\"\nexport CMAKE_C_COMPILER_LAUNCHER=sccache\nexport CMAKE_CXX_COMPILER_LAUNCHER=sccache\nmise run configure\nmise run build",
+    "setup_apt_packages": [
+      "curl",
+      "git",
+      "ca-certificates",
+      "libegl-mesa0",
+      "libgl1-mesa-dri",
+      "libvulkan1",
+      "mesa-utils",
+      "mesa-utils-extra",
+      "mesa-vulkan-drivers"
+    ],
+    "setup_commands": [],
+    "sccache_stats_source": "host",
+    "notes": "MapLibre Native FFI issue 7 asks for shared C++ sccache with main-only writes and public or anonymous reads. This first proof intentionally starts with the Linux x64 Vulkan variant used by upstream CI, preserving MISE_ENV, SCCACHE_BASEDIRS, SCCACHE_GHA_VERSION, and CMake compiler-launcher wiring from .github/actions/setup-ci-deps. Promotion requires the BoringCache read-only lane to reuse compiler artifacts without BORINGCACHE_SAVE_TOKEN; a writer-only warm run is not a sales proof."
+  },
+  "workflow": {
+    "runner_label": "ubuntu-latest",
+    "free_disk_space": true,
+    "timeout_minutes": 180
+  }
+}
