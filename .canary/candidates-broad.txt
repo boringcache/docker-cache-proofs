@@ -1,0 +1,11 @@
+# Broader Docker canary sweep for the managed BuildKit backend.
+# Keep these fresh samples parallel-safe. Rolling lanes need ordered dispatch.
+# Format: <case_id> <ref_key> <cache_lane> [build_output]
+phentrieve-api release fresh
+wormhole-solana main fresh
+nmisp-nightly main fresh
+kvrocks-docker main fresh
+cardstack-realm-server main fresh
+dependabot-updater-core main fresh
+iggy-rust-server main fresh
+kvrocks-docker-sccache main fresh
