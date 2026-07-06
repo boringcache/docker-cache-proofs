@@ -10,7 +10,7 @@ The GitHub repository is `boringcache/docker-cache-proofs`. The live BoringCache
 
 Docker proof lanes should stay simple by default: build the upstream Dockerfile with BoringCache's Docker cache path and keep the case runnable. If the upstream pain is Docker plus real compile or task work inside `RUN` steps, add a separate static hybrid lane such as `*-sccache` that uses `docker.tool_cache`; do not make tool-cache a manual dispatch knob and do not fold speculative tooling into the base Docker lane.
 
-The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, ECR registry cache in `us-east-1`, BoringCache OCI proxy cache, BoringCache native BuildKit cache, and the experimental BoringCache BuildKit backend so every Docker case has the same cold/rolling comparison surface.
+The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, ECR registry cache in `us-east-1`, BoringCache OCI proxy cache, and the managed BoringCache BuildKit backend so every Docker case has the same cold/rolling comparison surface.
 
 ## Docker Cases
 
@@ -80,6 +80,12 @@ For ordered fresh + rolling runs:
 scripts/dispatch-proof-series.sh --case phentrieve-api --build-output none
 scripts/dispatch-tool-proof-series.sh --case aranya-rust
 ```
+
+For canary Docker proof sweeps, run the `Canary Docker Proof Dispatch`
+workflow. By default it dispatches the cases in `.canary/candidates.txt` with
+the moving CLI release tag `vcli-canary` and BuildKit image
+`ghcr.io/boringcache/buildkit:canary`; override `cli_version` or
+`prewarm_buildkit_image` only when isolating a specific experiment.
 
 For archive inventory plus BoringCache archive smoke:
 
