@@ -23,6 +23,11 @@ on:
         required: true
         type: string
         default: main
+      managed_buildkit_image:
+        description: Exact managed BuildKit digest ref
+        required: true
+        type: string
+        default: ghcr.io/boringcache/buildkit@sha256:f9f20bdc8b03f7f5c2946f51fe995ef1f08122af1034e4b4c2a8b1354273859f
 
 permissions:
   actions: write
@@ -125,7 +130,7 @@ jobs:
           cli-platform: linux-amd64
           cache-runtime: "false"
           cache-backend: state
-          managed-buildkit-image: ghcr.io/boringcache/buildkit@sha256:f9f20bdc8b03f7f5c2946f51fe995ef1f08122af1034e4b4c2a8b1354273859f
+          managed-buildkit-image: ${{ inputs.managed_buildkit_image }}
           cache-tag: ${{ format('proof-{0}-buildkit-state-rolling-main-4c', needs.case.outputs.case_id) }}
           working-directory: .
           context: ${{ needs.case.outputs.docker_context }}
