@@ -33,6 +33,11 @@ on:
         required: true
         type: string
         default: vcli-canary-661f42afa76e
+      cache_scope:
+        description: Isolated persistent-state scope
+        required: true
+        type: string
+        default: rolling-main-4c
 
 permissions:
   actions: write
@@ -136,7 +141,7 @@ jobs:
           cache-runtime: "false"
           cache-backend: state
           managed-buildkit-image: ${{ inputs.managed_buildkit_image }}
-          cache-tag: ${{ format('proof-{0}-buildkit-state-rolling-main-4c', needs.case.outputs.case_id) }}
+          cache-tag: ${{ format('proof-{0}-buildkit-state-{1}', needs.case.outputs.case_id, inputs.cache_scope) }}
           working-directory: .
           context: ${{ needs.case.outputs.docker_context }}
           dockerfile: ${{ steps.docker.outputs.dockerfile }}
