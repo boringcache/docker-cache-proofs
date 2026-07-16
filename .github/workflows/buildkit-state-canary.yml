@@ -93,14 +93,20 @@ jobs:
       - name: Resolve native Docker inputs
         id: docker
         shell: bash
+        env:
+          DOCKER_CONTEXT: ${{ needs.case.outputs.docker_context }}
+          DOCKERFILE_PATH: ${{ needs.case.outputs.dockerfile_path }}
         run: |
           set -euo pipefail
           case_file="cases/${CASE_ID}.json"
+          context_dir="$(realpath "$DOCKER_CONTEXT")"
+          dockerfile_path="$(realpath "$DOCKERFILE_PATH")"
           delimiter="build_args_$(date +%s%N)"
           {
             echo "build_args<<${delimiter}"
             jq -r '.docker.build_args[]?' "$case_file"
             echo "$delimiter"
+            echo "dockerfile=$(realpath --relative-to="$context_dir" "$dockerfile_path")"
             echo "target=$(jq -r '.docker.target // empty' "$case_file")"
             echo "platform=$(jq -r '.docker.platform // "linux/amd64"' "$case_file")"
             echo "image=$(jq -r '.docker.image' "$case_file")"
@@ -123,7 +129,7 @@ jobs:
           cache-tag: ${{ format('proof-{0}-buildkit-state-rolling-main-4c', needs.case.outputs.case_id) }}
           working-directory: .
           context: ${{ needs.case.outputs.docker_context }}
-          dockerfile: ${{ needs.case.outputs.dockerfile_path }}
+          dockerfile: ${{ steps.docker.outputs.dockerfile }}
           image: ${{ steps.docker.outputs.image }}-state-benchmark
           tags: latest
           build-args: ${{ steps.docker.outputs.build_args }}
