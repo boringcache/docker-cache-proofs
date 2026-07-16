@@ -28,6 +28,11 @@ on:
         required: true
         type: string
         default: ghcr.io/boringcache/buildkit@sha256:f9f20bdc8b03f7f5c2946f51fe995ef1f08122af1034e4b4c2a8b1354273859f
+      cli_version:
+        description: Exact immutable CLI canary tag
+        required: true
+        type: string
+        default: vcli-canary-661f42afa76e
 
 permissions:
   actions: write
@@ -126,7 +131,7 @@ jobs:
           setup: none
           mode: docker
           workspace: boringcache/docker-cache-proof
-          cli-version: vcli-canary-661f42afa76e
+          cli-version: ${{ inputs.cli_version }}
           cli-platform: linux-amd64
           cache-runtime: "false"
           cache-backend: state
