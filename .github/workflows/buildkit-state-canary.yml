@@ -160,6 +160,4 @@ jobs:
           verify: wait
           verify-require-server-signature: "true"
           diagnostics: summary
-          diagnostics-artifact-name: ${{ format('proof-{0}-state-4c-r{1}-a{2}', needs.case.outputs.case_id, github.run_id, github.run_attempt) }}
-          diagnostics-artifact-retention-days: "14"
           metadata-hints: ${{ format('benchmark={0},phase=commit', needs.case.outputs.case_id) }}
