@@ -1,0 +1,144 @@
+name: BuildKit State Canary
+run-name: ${{ format('BuildKit state 4c | {0} | {1}', inputs.case_id, inputs.ref_key) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Docker proof case
+        required: true
+        type: choice
+        options:
+          - phentrieve-api
+          - wormhole-solana
+          - cardstack-realm-server
+          - dependabot-updater-core
+          - iggy-rust-server
+          - iggy-rust-server-sccache
+          - kvrocks-docker
+          - kvrocks-docker-sccache
+          - nmisp-nightly
+      ref_key:
+        description: Pinned case ref
+        required: true
+        type: string
+        default: main
+
+permissions:
+  actions: write
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ format('buildkit-state-canary-{0}-{1}-4c', inputs.case_id, inputs.ref_key) }}
+  cancel-in-progress: false
+
+jobs:
+  case:
+    name: Resolve
+    runs-on: ubuntu-latest
+    outputs:
+      case_id: ${{ steps.case.outputs.case_id }}
+      case_ref_key: ${{ steps.case.outputs.case_ref_key }}
+      dockerfile_path: ${{ steps.case.outputs.dockerfile_path }}
+      docker_context: ${{ steps.case.outputs.docker_context }}
+      runner_label: ${{ steps.case.outputs.runner_label }}
+      free_disk_space: ${{ steps.case.outputs.free_disk_space }}
+      docker_tool_cache: ${{ steps.case.outputs.docker_tool_cache }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: case
+        shell: bash
+        run: ./scripts/emit-case-outputs.sh "${{ inputs.case_id }}" "${{ inputs.ref_key }}" none
+
+  state:
+    name: State 4c / ${{ needs.case.outputs.case_id }}
+    needs: case
+    runs-on: ${{ needs.case.outputs.runner_label }}
+    timeout-minutes: 180
+    env:
+      BORINGCACHE_API_URL: https://api.boringcache.com
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_GHCR_READ_USER: ${{ vars.BORINGCACHE_GHCR_READ_USER || github.actor }}
+      BORINGCACHE_GHCR_READ_TOKEN: ${{ secrets.BORINGCACHE_GHCR_READ_TOKEN }}
+      BORINGCACHE_BUILD_MAX_ATTEMPTS: "1"
+      CASE_ID: ${{ needs.case.outputs.case_id }}
+      CASE_REF_KEY: ${{ needs.case.outputs.case_ref_key }}
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Free disk space
+        if: ${{ needs.case.outputs.free_disk_space == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          available_kb="$(df -Pk / | awk 'NR == 2 { print $4 }')"
+          required_kb=$((45 * 1024 * 1024))
+          if (( available_kb < required_kb )); then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/share/swift /usr/local/.ghcup
+            sudo docker system prune --all --volumes --force
+          fi
+          df -h /
+
+      - name: Prepare pinned proof source
+        shell: bash
+        run: ./scripts/prepare-case-source.sh "$CASE_ID" "$CASE_REF_KEY"
+
+      - name: Resolve native Docker inputs
+        id: docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          case_file="cases/${CASE_ID}.json"
+          delimiter="build_args_$(date +%s%N)"
+          {
+            echo "build_args<<${delimiter}"
+            jq -r '.docker.build_args[]?' "$case_file"
+            echo "$delimiter"
+            echo "target=$(jq -r '.docker.target // empty' "$case_file")"
+            echo "platform=$(jq -r '.docker.platform // "linux/amd64"' "$case_file")"
+            echo "image=$(jq -r '.docker.image' "$case_file")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build with persistent BuildKit state
+        uses: boringcache/one@one-canary-4a8b54452cfb
+        env:
+          BORINGCACHE_BUILDKIT_MOUNTCACHE_OFFLOADER: "1"
+          BORINGCACHE_REQUIRE_SERVER_SIGNATURE: "1"
+        with:
+          setup: none
+          mode: docker
+          workspace: boringcache/docker-cache-proof
+          cli-version: vcli-canary-661f42afa76e
+          cli-platform: linux-amd64
+          cache-runtime: "false"
+          cache-backend: state
+          managed-buildkit-image: ghcr.io/boringcache/buildkit@sha256:f9f20bdc8b03f7f5c2946f51fe995ef1f08122af1034e4b4c2a8b1354273859f
+          cache-tag: ${{ format('proof-{0}-buildkit-state-rolling-main-4c', needs.case.outputs.case_id) }}
+          working-directory: .
+          context: ${{ needs.case.outputs.docker_context }}
+          dockerfile: ${{ needs.case.outputs.dockerfile_path }}
+          image: ${{ steps.docker.outputs.image }}-state-benchmark
+          tags: latest
+          build-args: ${{ steps.docker.outputs.build_args }}
+          target: ${{ steps.docker.outputs.target }}
+          platforms: ${{ steps.docker.outputs.platform }}
+          docker-tool-cache: ${{ needs.case.outputs.docker_tool_cache != '' && format('sccache:proof-{0}-sccache-rolling-main-4c', needs.case.outputs.case_id) || '' }}
+          load: "false"
+          push: "false"
+          proxy-no-git: "true"
+          proxy-no-platform: "true"
+          no-platform: "true"
+          save-policy: auto
+          verify: wait
+          verify-require-server-signature: "true"
+          diagnostics: summary
+          diagnostics-artifact-name: ${{ format('proof-{0}-state-4c-r{1}-a{2}', needs.case.outputs.case_id, github.run_id, github.run_attempt) }}
+          diagnostics-artifact-retention-days: "14"
+          metadata-hints: ${{ format('benchmark={0},phase=commit', needs.case.outputs.case_id) }}
