@@ -113,7 +113,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build with persistent BuildKit state
-        uses: boringcache/one@one-canary-4a8b54452cfb
+        uses: boringcache/one@one-canary-6a178eda8764
         env:
           BORINGCACHE_BUILDKIT_MOUNTCACHE_OFFLOADER: "1"
           BORINGCACHE_REQUIRE_SERVER_SIGNATURE: "1"
