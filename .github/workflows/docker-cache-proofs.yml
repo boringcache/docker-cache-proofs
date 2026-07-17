@@ -51,6 +51,14 @@ on:
         required: false
         type: string
         default: ""
+      lane_filter:
+        description: "Run the full comparison or only the BoringCache BuildKit backend lane."
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - buildkit
 permissions:
   contents: read
   actions: write
@@ -82,6 +90,7 @@ jobs:
 
   github-actions-cache:
     name: GHA
+    if: ${{ inputs.lane_filter == 'all' }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -146,6 +155,7 @@ jobs:
 
   ecr-cache:
     name: ECR
+    if: ${{ inputs.lane_filter == 'all' }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -214,6 +224,7 @@ jobs:
 
   boringcache-oci:
     name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC OCI + toolcache' || 'BC OCI' }}
+    if: ${{ inputs.lane_filter == 'all' }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
