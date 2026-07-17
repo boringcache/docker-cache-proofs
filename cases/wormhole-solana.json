@@ -11,7 +11,9 @@
     "parent": "b7ec39f921713bf22e1388cfecb915b827c94a98",
     "rolling1": "ce4279b5457f35b8864485e7f6fd719e6ecc330f",
     "rolling2": "a84e71a944b582ccdf4de8e07b41b85c423d6bd6",
-    "rolling3": "f7f65d3751ffeb6ba65fdbba0f287aa6ed473b31"
+    "rolling3": "f7f65d3751ffeb6ba65fdbba0f287aa6ed473b31",
+    "graduation-base": "7bef47bc3712afacb9c6821a6685b37bda5c59a1",
+    "graduation-head": "fae2187c9bb2adb7eaf2cc294c0b18a49adc50dd"
   },
   "docker": {
     "context": ".",
@@ -25,4 +27,3 @@
     "free_disk_space": true
   }
 }
-
