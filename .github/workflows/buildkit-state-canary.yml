@@ -27,12 +27,12 @@ on:
         description: Exact managed BuildKit digest ref
         required: true
         type: string
-        default: ghcr.io/boringcache/buildkit@sha256:7cc1bd79c999dace797465e632bbe255c883e9a468584955eae68d6e0af6ab65
+        default: ghcr.io/boringcache/buildkit@sha256:cfcc50779c981fa63ef4818e6744adfa642cc5fd00b60539def3458862739510
       cli_version:
         description: Exact immutable CLI canary tag
         required: true
         type: string
-        default: vcli-canary-e042557b1673
+        default: vcli-canary-1552d25f9179
       cache_scope:
         description: Isolated persistent-state scope
         required: true
@@ -128,7 +128,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build with persistent BuildKit state
-        uses: boringcache/one@one-canary-a9c73302d8be
+        uses: boringcache/one@one-canary-a2a1e9c7f82d
         env:
           BORINGCACHE_BUILDKIT_MOUNTCACHE_OFFLOADER: "1"
           BORINGCACHE_REQUIRE_SERVER_SIGNATURE: "1"
@@ -160,4 +160,6 @@ jobs:
           verify: wait
           verify-require-server-signature: "true"
           diagnostics: summary
+          diagnostics-artifact-name: ${{ format('proof-{0}-state-4c-r{1}-a{2}', needs.case.outputs.case_id, github.run_id, github.run_attempt) }}
+          diagnostics-artifact-retention-days: "14"
           metadata-hints: ${{ format('benchmark={0},phase=commit', needs.case.outputs.case_id) }}
