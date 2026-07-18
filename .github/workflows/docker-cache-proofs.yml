@@ -51,6 +51,11 @@ on:
         required: false
         type: string
         default: ""
+      cache_scope_suffix:
+        description: "Optional isolated suffix for a controlled seed/rolling series."
+        required: false
+        type: string
+        default: ""
       lane_filter:
         description: "Run the full comparison or only the BoringCache BuildKit backend lane."
         required: true
@@ -140,7 +145,7 @@ jobs:
           cache_lane: ${{ inputs.cache_lane }}
           benchmark_id: ${{ needs.case.outputs.benchmark_id }}-gha
           cache_id: ${{ needs.case.outputs.cache_id }}
-          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          cache_scope_suffix: ${{ format('-{0}{1}', needs.case.outputs.case_id, inputs.cache_scope_suffix) }}
           case_id: ${{ needs.case.outputs.case_id }}
           case_ref_key: ${{ needs.case.outputs.case_ref_key }}
           project_repo: ${{ needs.case.outputs.project_repo }}
@@ -205,7 +210,7 @@ jobs:
           cache_lane: ${{ inputs.cache_lane }}
           benchmark_id: ${{ needs.case.outputs.benchmark_id }}-ecr
           cache_id: ${{ needs.case.outputs.cache_id }}
-          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          cache_scope_suffix: ${{ format('-{0}{1}', needs.case.outputs.case_id, inputs.cache_scope_suffix) }}
           case_id: ${{ needs.case.outputs.case_id }}
           case_ref_key: ${{ needs.case.outputs.case_ref_key }}
           project_repo: ${{ needs.case.outputs.project_repo }}
@@ -279,7 +284,7 @@ jobs:
           cache_lane: ${{ inputs.cache_lane }}
           benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-oci
           cache_id: ${{ needs.case.outputs.cache_id }}
-          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          cache_scope_suffix: ${{ format('-{0}{1}', needs.case.outputs.case_id, inputs.cache_scope_suffix) }}
           case_id: ${{ needs.case.outputs.case_id }}
           case_ref_key: ${{ needs.case.outputs.case_ref_key }}
           project_repo: ${{ needs.case.outputs.project_repo }}
@@ -352,7 +357,7 @@ jobs:
           cache_lane: ${{ inputs.cache_lane }}
           benchmark_id: ${{ needs.case.outputs.benchmark_id }}-bc-buildkit
           cache_id: ${{ needs.case.outputs.cache_id }}-buildkit
-          cache_scope_suffix: -${{ needs.case.outputs.case_id }}
+          cache_scope_suffix: ${{ format('-{0}{1}', needs.case.outputs.case_id, inputs.cache_scope_suffix) }}
           case_id: ${{ needs.case.outputs.case_id }}
           case_ref_key: ${{ needs.case.outputs.case_ref_key }}
           project_repo: ${{ needs.case.outputs.project_repo }}
