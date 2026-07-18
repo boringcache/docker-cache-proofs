@@ -136,7 +136,7 @@ runs:
       password: "${{ env.BORINGCACHE_GHCR_READ_TOKEN || github.token }}"
   - name: Install BoringCache CLI with boringcache/one
     if: "${{ inputs.strategy == 'boringcache' }}"
-    uses: boringcache/one@v1
+    uses: boringcache/one@one-canary-3ffc8131138b
     with:
       setup: none
       mode: archive
@@ -199,7 +199,7 @@ runs:
   - name: Configure boringcache/one for Docker
     if: "${{ inputs.strategy == 'boringcache' && inputs.docker_tool_cache == '' }}"
     id: docker_cache
-    uses: boringcache/one@v1
+    uses: boringcache/one@one-canary-3ffc8131138b
     with:
       setup: none
       cache-runtime: false
@@ -213,6 +213,7 @@ runs:
       no-platform: 'true'
       proxy-no-git: 'true'
       proxy-no-platform: 'true'
+      fail-on-cache-error: 'true'
       driver-opts: |
         image=${{ inputs.buildkit_image }}
         network=host
@@ -600,7 +601,7 @@ runs:
       path: .benchmark-config
   - name: Install BoringCache CLI with boringcache/one
     if: "${{ inputs.strategy == 'boringcache' }}"
-    uses: boringcache/one@v1
+    uses: boringcache/one@one-canary-3ffc8131138b
     with:
       setup: none
       mode: archive
