@@ -844,6 +844,8 @@ runs:
     id: artifact_files
     env:
       BORINGCACHE_API_TOKEN: "${{ env.BORINGCACHE_API_TOKEN || env.BORINGCACHE_RESTORE_TOKEN }}"
+      BENCHMARK_CLI_VERSION: "${{ inputs.cli_version }}"
+      BENCHMARK_ACTION_REF: boringcache/one@one-canary-e857cffbe965
     run: |
       cache_summary_args=()
       if [[ -s benchmark-session-summary/benchmark-session-summary.json ]]; then
