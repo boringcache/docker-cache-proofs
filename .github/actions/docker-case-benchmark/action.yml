@@ -225,7 +225,7 @@ runs:
       BORINGCACHE_SAVE_TOKEN: "${{ env.BORINGCACHE_SAVE_TOKEN }}"
       BORINGCACHE_OBSERVABILITY_JSONL_PATH: "${{ runner.temp }}/${{ inputs.benchmark_id }}-boringcache-build-observability.jsonl"
   - name: Set up Docker Buildx for tool-cache
-    if: "${{ inputs.strategy == 'boringcache' && inputs.docker_tool_cache != '' }}"
+    if: "${{ inputs.strategy == 'boringcache' && inputs.docker_tool_cache != '' && inputs.buildkit_cache_backend != 'boringcache' }}"
     id: tool_cache_buildx
     uses: docker/setup-buildx-action@v4
     with:

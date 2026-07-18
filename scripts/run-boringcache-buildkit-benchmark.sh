@@ -230,6 +230,30 @@ write_build_metrics() {
   fi
 }
 
+verify_expected_cache_backend() {
+  local expected="${buildkit_cache_backend:-registry}"
+  case "$expected" in
+    boringcache)
+      if ! grep -qE '^#[0-9]+ exporting cache to boringcache$' "$build_log"; then
+        echo "Expected the managed type=boringcache exporter, but the build did not report 'exporting cache to boringcache'." >&2
+        echo "Refusing to publish a mislabeled BuildKit-backend benchmark sample." >&2
+        return 1
+      fi
+      ;;
+    registry | "")
+      if ! grep -qE '^#[0-9]+ exporting cache to registry$' "$build_log"; then
+        echo "Expected the registry cache exporter, but the build did not report 'exporting cache to registry'." >&2
+        echo "Refusing to publish a mislabeled registry benchmark sample." >&2
+        return 1
+      fi
+      ;;
+    *)
+      echo "Unsupported expected BuildKit cache backend: ${expected}" >&2
+      return 1
+      ;;
+  esac
+}
+
 parse_tool_cache_args() {
   tool_cache_args=()
   while IFS= read -r tool_cache_entry; do
@@ -389,17 +413,27 @@ write_build_diagnostics() {
   } > "$output_path"
 }
 
-run_registry_tool_cache_build() {
+run_tool_cache_build() {
   local phase_hint="cold"
   if [[ "$mode" == "rolling" ]]; then
     phase_hint="commit"
   fi
 
+  local tool_cache_backend="${buildkit_cache_backend:-registry}"
+  case "$tool_cache_backend" in
+    boringcache | registry)
+      ;;
+    *)
+      echo "Unsupported Docker tool-cache BuildKit backend: ${tool_cache_backend}" >&2
+      exit 1
+      ;;
+  esac
+
   local boringcache_args=(
     docker
     --workspace "${BENCHMARK_WORKSPACE:?Set BENCHMARK_WORKSPACE}"
     --tag "${CACHE_SCOPE:?Set CACHE_SCOPE}"
-    --backend registry
+    --backend "$tool_cache_backend"
     --port "$proxy_port"
     --host "${DOCKER_TOOL_CACHE_PROXY_HOST:-127.0.0.1}"
     --endpoint-host "${DOCKER_TOOL_CACHE_ENDPOINT_HOST:-127.0.0.1}"
@@ -410,15 +444,23 @@ run_registry_tool_cache_build() {
     --metadata-hint "benchmark=${BENCHMARK_ID:-docker}"
     --metadata-hint "phase=${phase_hint}"
     --metadata-hint "lane=${CACHE_LANE:-fresh}"
-    --metadata-hint "backend=registry"
+    --metadata-hint "backend=${tool_cache_backend}"
     --fail-on-cache-error
   )
   boringcache_args+=("${tool_cache_args[@]}")
 
   local builder="${TOOL_CACHE_BUILDER:-${BUILDER:-}}"
   local builder_args=()
-  if [[ -n "$builder" ]]; then
+  if [[ "$tool_cache_backend" == "registry" && -n "$builder" ]]; then
     builder_args=(--builder "$builder")
+  fi
+
+  # The managed type=boringcache lifecycle owns its builder and derives the
+  # exact cache import/export specs from --tag. Hand-authored cache flags or a
+  # user-selected builder would bypass the product path being benchmarked.
+  local wrapped_cache_args=("${cache_args[@]}")
+  if [[ "$tool_cache_backend" == "boringcache" ]]; then
+    wrapped_cache_args=()
   fi
 
   : > "$build_log"
@@ -430,7 +472,7 @@ run_registry_tool_cache_build() {
     --tag "$IMAGE_TAG" \
     --progress=plain \
     ${extra_args[@]+"${extra_args[@]}"} \
-    ${cache_args[@]+"${cache_args[@]}"} \
+    ${wrapped_cache_args[@]+"${wrapped_cache_args[@]}"} \
     ${output_args[@]+"${output_args[@]}"} \
     "$BENCHMARK_DOCKER_CONTEXT" 2>&1 | tee "$build_log"
   status=${PIPESTATUS[0]}
@@ -487,7 +529,7 @@ while true; do
   fi
 
   if [[ "${#tool_cache_args[@]}" -gt 0 ]]; then
-    run_registry_tool_cache_build
+    run_tool_cache_build
   else
     require_readable_cache_import
     start_proxy
@@ -520,6 +562,7 @@ while true; do
   fi
 
   if [[ "$status" -eq 0 ]]; then
+    verify_expected_cache_backend
     import_status="$(build_import_status)"
     write_sccache_stats_from_build_log
     if [[ "$mode" =~ ^(rolling|fresh)$ ]] && grep -Eq "$cache_export_pattern" "$build_log"; then
