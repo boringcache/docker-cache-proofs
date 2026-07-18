@@ -429,14 +429,21 @@ run_tool_cache_build() {
       ;;
   esac
 
+  local proxy_address_args=()
+  if [[ "$tool_cache_backend" == "registry" ]]; then
+    proxy_address_args=(
+      --host "${DOCKER_TOOL_CACHE_PROXY_HOST:-127.0.0.1}"
+      --endpoint-host "${DOCKER_TOOL_CACHE_ENDPOINT_HOST:-127.0.0.1}"
+    )
+  fi
+
   local boringcache_args=(
     docker
     --workspace "${BENCHMARK_WORKSPACE:?Set BENCHMARK_WORKSPACE}"
     --tag "${CACHE_SCOPE:?Set CACHE_SCOPE}"
     --backend "$tool_cache_backend"
     --port "$proxy_port"
-    --host "${DOCKER_TOOL_CACHE_PROXY_HOST:-127.0.0.1}"
-    --endpoint-host "${DOCKER_TOOL_CACHE_ENDPOINT_HOST:-127.0.0.1}"
+    "${proxy_address_args[@]}"
     --cache-mode max
     --no-platform
     --no-git
