@@ -4,6 +4,12 @@ Runnable proof workflows for public build-cache cases.
 
 Each case pins real upstream commits, links the public pain signal, and emits the same benchmark JSON/Markdown artifact shape used by the BoringCache benchmark repos.
 
+The current app-style prospect cohort and the rules for turning it into a
+marketing claim are recorded in
+[`docs/prospect-performance-evidence-2026-07-20.md`](docs/prospect-performance-evidence-2026-07-20.md).
+Timing and storage are evaluated separately so repo-wide GitHub cache usage is
+never presented as a per-image storage comparison.
+
 The GitHub repository is `boringcache/docker-cache-proofs`. The live BoringCache workspace used by both proof workflows is `boringcache/docker-cache-proof` singular.
 
 ## Lane Rules
