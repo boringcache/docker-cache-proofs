@@ -14,6 +14,8 @@ The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, E
 
 ## Docker Cases
 
+`Reported pain` means the project has explicitly documented the Docker/cache problem. `Observed tax` is still a promising outreach signal when a current public job spends at least 200 seconds preparing or exporting cache, even without a matching issue. Keep sub-200-second observed cases as product proofs or watchlist entries unless another pain signal makes them relevant.
+
 | Case | Signal | Public pain | Proof source |
 |---|---|---|---|
 | `phentrieve-api` | Reported pain | [API Docker build exceeded 30-minute GitHub Actions timeout](https://github.com/berntpopp/phentrieve/issues/94); workflow says registry cache is more reliable than `gha` for PyTorch-sized images. | [Official slow API job](https://github.com/berntpopp/phentrieve/actions/runs/26388675097/job/77672942721); BoringCache proof runs in this repo. |
@@ -33,6 +35,7 @@ The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, E
 | `auto-mobile-docker` | Reported pain | [The project measured a 692-second GHA cache export](https://github.com/kaeawc/auto-mobile/issues/640), then disabled cache export to recover the publish time. | [Official slow publish job](https://github.com/kaeawc/auto-mobile/actions/runs/20904260051/job/60055768837); the proof uses the exact pre-mitigation source commit. |
 | `supabase-studio` | Observed tax | The current weekly AMD64 Studio image spent 332.6 seconds sending its `type=gha,mode=max` cache export. | [Official 4-vCPU Studio job](https://github.com/supabase/supabase/actions/runs/29718726330/job/88276984110); the proof preserves the upstream production target on AMD64. |
 | `prefect-conda` | Observed tax | The Python 3.12 conda image spent 345.3 seconds exporting its GHA cache: 73.1 seconds preparing and 272.2 seconds transferring. | [Official two-platform conda job](https://github.com/PrefectHQ/prefect/actions/runs/29637767387/job/88062987619); the proof preserves the upstream AMD64/ARM64 QEMU build and conda flavor. |
+| `teable-community` | Observed tax | The current native AMD64 community app spent 475.2 seconds exporting its GHA cache: 199.5 seconds preparing and 275.7 seconds transferring. | [Official native AMD64 app job](https://github.com/teableio/teable/actions/runs/29639339391/job/88067090491); the proof preserves the upstream community Dockerfile and changing build-version input. |
 
 ## Tool Cache Cases
 
