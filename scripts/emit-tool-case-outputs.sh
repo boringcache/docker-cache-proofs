@@ -39,7 +39,7 @@ if [[ "$manifest_id" != "$case_id" ]]; then
   exit 1
 fi
 
-project_ref="$(jq -er --arg key "$ref_key" '.refs[$key]' "$case_file")"
+project_ref="$("${repo_root}/scripts/resolve-case-ref.sh" "$case_file" "$ref_key")"
 project_repo="$(jq -er '.source.repo' "$case_file")"
 adapter="$(jq -er '.adapter' "$case_file")"
 rust_toolchain="$(jq -r '.tool.rust_toolchain // ""' "$case_file")"

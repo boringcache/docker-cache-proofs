@@ -19,7 +19,7 @@ on:
           - kvrocks-docker-sccache
           - nmisp-nightly
       ref_key:
-        description: Pinned case ref
+        description: Pinned case ref name or exact 40-character source SHA
         required: true
         type: string
         default: main

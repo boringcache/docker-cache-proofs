@@ -17,7 +17,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 project_repo="$(jq -er '.source.repo' "$case_file")"
-project_ref="$(jq -er --arg key "$ref_key" '.refs[$key]' "$case_file")"
+project_ref="$("${repo_root}/scripts/resolve-case-ref.sh" "$case_file" "$ref_key")"
 fetch_depth="$(jq -r '.source.fetch_depth // 1' "$case_file")"
 source_dir="${repo_root}/.work/${case_id}/source"
 clone_url="https://github.com/${project_repo}.git"
