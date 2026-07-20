@@ -9,10 +9,17 @@ set -euo pipefail
 # the total repo cache usage from the API (honest, verifiable).
 #
 # Usage:
-#   sum-gha-cache-by-key.sh <prefix> [window_started_at] [window_ended_at]
+#   sum-gha-cache-by-key.sh [--docker-repo-total] <prefix> [window_started_at] [window_ended_at]
 #
-# When prefix starts with "index-" or matches a Docker benchmark ID, the script
-# fetches total repo cache usage. Otherwise it sums matching key entries.
+# Pass --docker-repo-total for Docker BuildKit caches, whose shared blob keys
+# cannot be attributed to one project. Without it, the script sums entries
+# matching the supplied key prefix.
+
+docker_repo_total=false
+if [[ "${1:-}" == "--docker-repo-total" ]]; then
+  docker_repo_total=true
+  shift
+fi
 
 benchmark_or_prefix="${1:-}"
 window_started_at="${2:-}"
@@ -34,34 +41,13 @@ if [[ -z "${GITHUB_TOKEN:-}" ]]; then
   exit 0
 fi
 
-# Determine whether this benchmark uses Docker buildkit cache.
-# Docker benchmarks have buildkit-blob-* entries that are shared and unattributable.
-is_docker_benchmark() {
-  local prefix="$1"
-  # Docker benchmark IDs: posthog, mastodon-docker, hugo, immich
-  # Non-docker: zed-sccache, grpc-bazel, etc.
-  case "$prefix" in
-    index-posthog*|posthog*) return 0 ;;
-    index-mastodon*|mastodon*) return 0 ;;
-    index-hugo*|hugo*) return 0 ;;
-    index-immich*|immich*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-if [[ "$benchmark_or_prefix" == index-* ]]; then
-  index_prefix="$benchmark_or_prefix"
-else
-  index_prefix="index-${benchmark_or_prefix}"
-fi
-
 if [[ -z "$window_ended_at" ]]; then
   window_ended_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 fi
 
 # For Docker benchmarks: report total repo cache usage.
 # This is the only honest number — buildkit blobs can't be split per project.
-if is_docker_benchmark "$benchmark_or_prefix"; then
+if [[ "$docker_repo_total" == "true" ]]; then
   repo_total="$(gh api "/repos/${repo}/actions/cache/usage" --jq '.active_caches_size_in_bytes' 2>/dev/null || echo "0")"
   if [[ -n "$repo_total" && "$repo_total" =~ ^[0-9]+$ ]]; then
     echo "$repo_total"
@@ -114,6 +100,8 @@ sum_for_query() {
   echo "$total"
 }
 
+# This is a jq program; shell expansion would corrupt its jq variables.
+# shellcheck disable=SC2016
 timestamp_filter='
   def parse_ts($v):
     if ($v // "") == "" then 0

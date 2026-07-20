@@ -686,7 +686,7 @@ runs:
     env:
       GITHUB_TOKEN: "${{ env.GITHUB_TOKEN }}"
     run: |
-      bytes="$(.benchmark-config/scripts/sum-gha-cache-by-key.sh "$BENCHMARK_ID" "${{ steps.scope.outputs.scope_started_at }}")"
+      bytes="$(.benchmark-config/scripts/sum-gha-cache-by-key.sh --docker-repo-total "$BENCHMARK_ID" "${{ steps.scope.outputs.scope_started_at }}")"
       echo "bytes=${bytes}" >> "$GITHUB_OUTPUT"
     shell: bash
   - name: Measure ECR cache storage usage
