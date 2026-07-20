@@ -45,6 +45,10 @@ if [[ "$manifest_id" != "$case_id" ]]; then
 fi
 
 project_ref="$("${repo_root}/scripts/resolve-case-ref.sh" "$case_file" "$ref_key")"
+benchmark_ref="$ref_key"
+if [[ "$ref_key" =~ ^[0-9a-f]{40}$ ]]; then
+  benchmark_ref="${ref_key:0:12}"
+fi
 project_repo="$(jq -er '.source.repo' "$case_file")"
 dockerfile="$(jq -er '.docker.dockerfile' "$case_file")"
 context="$(jq -er '.docker.context' "$case_file")"
@@ -75,7 +79,7 @@ extra_args="$(
 
 write_output "case_id" "$case_id"
 write_output "case_ref_key" "$ref_key"
-write_output "benchmark_id" "${case_id}-${ref_key}"
+write_output "benchmark_id" "${case_id}-${benchmark_ref}"
 write_output "cache_id" "$case_id"
 write_output "project_repo" "$project_repo"
 write_output "project_ref" "$project_ref"
