@@ -8,11 +8,14 @@ case_id=""
 fresh_ref="main"
 rolling_bootstrap_ref="main"
 build_output="none"
+lane_filter="all"
+cache_scope_suffix=""
 run_fresh="true"
 run_rolling="true"
 include_rolling_bootstrap="true"
 wait_for_runs="true"
 dry_run="false"
+warm_replay="false"
 rolling_refs=()
 
 usage() {
@@ -35,6 +38,9 @@ Options:
   --rolling-ref REF_KEY           Add one rolling ref key; repeatable
   --rolling-refs A,B,C            Add comma-separated rolling ref keys
   --build-output MODE             none, load, or local-registry (default: none)
+  --lane-filter FILTER            all, buildkit, or gha-buildkit (default: all)
+  --cache-scope-suffix SUFFIX     Isolate the stable rolling cache scope
+  --warm-replay                   Replay the last rolling ref once after the commit series
   --skip-fresh                    Do not dispatch the fresh lane
   --skip-rolling                  Do not dispatch rolling lanes
   --skip-rolling-bootstrap        Do not dispatch rolling bootstrap/update on main
@@ -91,6 +97,18 @@ while [[ $# -gt 0 ]]; do
       build_output="$2"
       shift 2
       ;;
+    --lane-filter)
+      lane_filter="$2"
+      shift 2
+      ;;
+    --cache-scope-suffix)
+      cache_scope_suffix="$2"
+      shift 2
+      ;;
+    --warm-replay)
+      warm_replay="true"
+      shift
+      ;;
     --skip-fresh)
       run_fresh="false"
       shift
@@ -134,6 +152,15 @@ case "$build_output" in
     ;;
   *)
     echo "Unsupported build output: $build_output" >&2
+    exit 1
+    ;;
+esac
+
+case "$lane_filter" in
+  all | buildkit | gha-buildkit)
+    ;;
+  *)
+    echo "Unsupported lane filter: $lane_filter" >&2
     exit 1
     ;;
 esac
@@ -214,6 +241,8 @@ dispatch_one() {
     -f "ref_key=${ref_key}"
     -f "cache_lane=${lane}"
     -f "build_output=${build_output}"
+    -f "lane_filter=${lane_filter}"
+    -f "cache_scope_suffix=${cache_scope_suffix}"
   )
 
   printf 'Dispatching:'
@@ -242,4 +271,8 @@ if [[ "$run_rolling" == "true" ]]; then
   for ref_key in "${rolling_refs[@]}"; do
     dispatch_one "$ref_key" rolling
   done
+  if [[ "$warm_replay" == "true" && "${#rolling_refs[@]}" -gt 0 ]]; then
+    last_rolling_index=$((${#rolling_refs[@]} - 1))
+    dispatch_one "${rolling_refs[$last_rolling_index]}" rolling
+  fi
 fi

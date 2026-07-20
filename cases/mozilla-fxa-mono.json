@@ -1,0 +1,28 @@
+{
+  "id": "mozilla-fxa-mono",
+  "source": {
+    "repo": "mozilla/fxa",
+    "pain_url": "https://github.com/mozilla/fxa/pull/19848",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "refs": {
+    "main": "00a9c0f9c34a80e717669ae38ce05c5a528fedcf",
+    "seed": "bb1e0a09540e3d33f89b86447f22f90f8da4d56f",
+    "rolling1": "a28d5780d4c79d0ffe6723b7d6462b9334d1d4d2",
+    "rolling2": "00a9c0f9c34a80e717669ae38ce05c5a528fedcf"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "_dev/docker/mono/Dockerfile",
+    "image": "mozilla-fxa-mono",
+    "platform": "linux/amd64",
+    "prepare_commands": [
+      "FXA_L10N_SHA=d9e0896a815729debabdb330c595f4021a97b393 FXA_L10N_DEPTH=1 ./_scripts/l10n/clone.sh",
+      "GIT_TAG=v0.0.0 ./_scripts/create-version-json.sh"
+    ],
+    "original_cache": "type=gha,mode=max removed after repeated runner disk exhaustion"
+  },
+  "workflow": {
+    "free_disk_space": true
+  }
+}

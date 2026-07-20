@@ -19,6 +19,9 @@ on:
           - kvrocks-docker
           - kvrocks-docker-sccache
           - nmisp-nightly
+          - mozilla-bedrock-release
+          - mozilla-fxa-mono
+          - pythonitalia-pycon-pretix
       ref_key:
         description: Pinned case ref name or exact 40-character source SHA
         required: true
@@ -57,13 +60,14 @@ on:
         type: string
         default: ""
       lane_filter:
-        description: "Run the full comparison or only the BoringCache BuildKit backend lane."
+        description: "Run every backend, only BoringCache BuildKit, or the GHA versus BoringCache proof pair."
         required: true
         type: choice
         default: all
         options:
           - all
           - buildkit
+          - gha-buildkit
 permissions:
   contents: read
   actions: write
@@ -85,6 +89,7 @@ jobs:
       docker_context: ${{ steps.case.outputs.docker_context }}
       image_tag: ${{ steps.case.outputs.image_tag }}
       runner_label: ${{ steps.case.outputs.runner_label }}
+      cli_platform: ${{ steps.case.outputs.cli_platform }}
       free_disk_space: ${{ steps.case.outputs.free_disk_space }}
       docker_build_extra_args: ${{ steps.case.outputs.docker_build_extra_args }}
       docker_tool_cache: ${{ steps.case.outputs.docker_tool_cache }}
@@ -95,7 +100,7 @@ jobs:
 
   github-actions-cache:
     name: GHA
-    if: ${{ inputs.lane_filter == 'all' }}
+    if: ${{ inputs.lane_filter == 'all' || inputs.lane_filter == 'gha-buildkit' }}
     needs: case
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
@@ -157,6 +162,7 @@ jobs:
           docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
           build_output: ${{ inputs.build_output }}
           runner_label: ${{ needs.case.outputs.runner_label }}
+          cli_platform: ${{ needs.case.outputs.cli_platform }}
 
   ecr-cache:
     name: ECR
@@ -222,6 +228,7 @@ jobs:
           docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
           build_output: ${{ inputs.build_output }}
           runner_label: ${{ needs.case.outputs.runner_label }}
+          cli_platform: ${{ needs.case.outputs.cli_platform }}
           ecr_region: ${{ vars.BENCHMARK_ECR_REGION || 'us-east-1' }}
           ecr_role_arn: ${{ vars.BENCHMARK_ECR_ROLE_ARN }}
           ecr_registry: ${{ vars.BENCHMARK_ECR_REGISTRY }}
@@ -296,6 +303,7 @@ jobs:
           docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
           build_output: ${{ inputs.build_output }}
           runner_label: ${{ needs.case.outputs.runner_label }}
+          cli_platform: ${{ needs.case.outputs.cli_platform }}
           benchmark_workspace: boringcache/docker-cache-proof
 
   boringcache-buildkit-backend:
@@ -369,6 +377,7 @@ jobs:
           docker_tool_cache: ${{ needs.case.outputs.docker_tool_cache }}
           build_output: ${{ inputs.build_output }}
           runner_label: ${{ needs.case.outputs.runner_label }}
+          cli_platform: ${{ needs.case.outputs.cli_platform }}
           benchmark_workspace: boringcache/docker-cache-proof
           buildkit_image: ${{ inputs.prewarm_buildkit_image || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
           buildkit_cache_backend: boringcache

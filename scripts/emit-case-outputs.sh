@@ -54,6 +54,7 @@ dockerfile="$(jq -er '.docker.dockerfile' "$case_file")"
 context="$(jq -er '.docker.context' "$case_file")"
 image="$(jq -er '.docker.image' "$case_file")"
 runner_label="$(jq -r '.workflow.runner_label // "ubuntu-latest"' "$case_file")"
+cli_platform="$(jq -r '.workflow.cli_platform // "linux-amd64"' "$case_file")"
 free_disk_space="$(jq -r '.workflow.free_disk_space // false' "$case_file")"
 docker_tool_cache="$(jq -r '.docker.tool_cache // ""' "$case_file")"
 source_path=".work/${case_id}/source"
@@ -65,7 +66,7 @@ fi
 
 extra_args="$(
   {
-    jq -r '.docker.build_args[]? | "--build-arg=" + .' "$case_file"
+    jq -r --arg project_ref "$project_ref" '.docker.build_args[]? | gsub("\\{PROJECT_REF\\}"; $project_ref) | "--build-arg=" + .' "$case_file"
     target="$(jq -r '.docker.target // empty' "$case_file")"
     if [[ -n "$target" ]]; then
       printf '%s\n' "--target=${target}"
@@ -87,6 +88,7 @@ write_output "dockerfile_path" "${source_path}/${dockerfile}"
 write_output "docker_context" "${source_path}/${context}"
 write_output "image_tag" "$image_tag"
 write_output "runner_label" "$runner_label"
+write_output "cli_platform" "$cli_platform"
 write_output "free_disk_space" "$free_disk_space"
 write_multiline_output "docker_tool_cache" "$docker_tool_cache"
 write_multiline_output "docker_build_extra_args" "$extra_args"

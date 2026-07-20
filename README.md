@@ -24,6 +24,9 @@ The `Docker Cache Proof` workflow runs each case against GitHub Actions Cache, E
 | `kvrocks-docker` | [Kvrocks CI optimization issue](https://github.com/apache/kvrocks/issues/2642): active discussion says native build/compile time is a large CI cost; the official workflow also builds and tests Docker images. | [Official CI sample](https://github.com/apache/kvrocks/actions/runs/26924643510); BoringCache proof runs in this repo. |
 | `kvrocks-docker-sccache` | Same Kvrocks pain, using a proof Dockerfile overlay that keeps the upstream image shape while opting the build stage into BoringCache-backed `sccache`. | [Official CI sample](https://github.com/apache/kvrocks/actions/runs/26924643510); BoringCache proof runs in this repo. |
 | `nmisp-nightly` | [nmisp nightly test image issue](https://github.com/kangwonlee/nmisp/issues/370): the nightly conda/ML image build was profiled at ~24m versus ~7m for the 2023.09 variant. | [Official slow nightly image job](https://github.com/kangwonlee/nmisp/actions/runs/24956177996/job/73074709808); BoringCache proof runs in this repo. |
+| `mozilla-bedrock-release` | [Bedrock cache investigation](https://github.com/mozilla/bedrock/issues/16941): restoring GHA cache took about three minutes and saving it took another three to five minutes. | The proof builds the upstream `release` target. Bedrock's separate five-image Compose publication tax is intentionally reported outside the cache-backend comparison. |
+| `mozilla-fxa-mono` | [Firefox Accounts removed GHA Docker caching](https://github.com/mozilla/fxa/pull/19848) after repeated runner disk exhaustion. | The proof uses the upstream monorepo Dockerfile and its pinned public localization input; no Dockerfile overlay is applied. |
+| `pythonitalia-pycon-pretix` | [Python Italia is evaluating S3-backed Docker caching](https://github.com/pythonitalia/pycon/issues/4536); Pretix still uses `type=gha,mode=max`. | The proof runs the upstream Pretix Dockerfile on a native GitHub-hosted ARM64 runner. |
 
 ## Tool Cache Cases
 
@@ -78,6 +81,7 @@ For ordered fresh + rolling runs:
 
 ```bash
 scripts/dispatch-proof-series.sh --case phentrieve-api --build-output none
+scripts/dispatch-proof-series.sh --case mozilla-bedrock-release --fresh-ref seed --rolling-bootstrap-ref seed --lane-filter gha-buildkit --warm-replay
 scripts/dispatch-tool-proof-series.sh --case aranya-rust
 ```
 

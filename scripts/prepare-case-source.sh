@@ -35,6 +35,17 @@ if [[ "$actual_ref" != "$project_ref" ]]; then
   exit 1
 fi
 
+prepare_step=0
+while IFS= read -r prepare_command; do
+  [[ -n "$prepare_command" ]] || continue
+  prepare_step=$((prepare_step + 1))
+  echo "Preparing ${case_id} source (step ${prepare_step})"
+  (
+    cd "$source_dir"
+    PROJECT_REF="$actual_ref" bash -euo pipefail -c "$prepare_command"
+  )
+done < <(jq -r '.docker.prepare_commands[]?' "$case_file")
+
 if [[ -n "$overlay_dockerfile" ]]; then
   dockerfile_path="$(jq -er '.docker.dockerfile' "$case_file")"
   overlay_source="${repo_root}/${overlay_dockerfile}"
