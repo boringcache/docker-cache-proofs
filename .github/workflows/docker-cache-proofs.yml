@@ -32,6 +32,7 @@ on:
           - formbricks-web
           - umami-release
           - hoppscotch-backend
+          - hoppscotch-backend-arm64
           - typebot-builder
           - stirling-pdf-embedded
           - heyform-community
