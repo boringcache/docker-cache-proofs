@@ -18,6 +18,8 @@ fi
 
 project_repo="$(jq -er '.source.repo' "$case_file")"
 project_ref="$("${repo_root}/scripts/resolve-case-ref.sh" "$case_file" "$ref_key")"
+project_tag="$(jq -r --arg key "$ref_key" '.ref_metadata[$key].tag // ""' "$case_file")"
+project_l10n_sha="$(jq -r --arg key "$ref_key" '.ref_metadata[$key].l10n_sha // ""' "$case_file")"
 overlay_dockerfile="$(jq -r '.docker.overlay_dockerfile // ""' "$case_file")"
 source_dir="${repo_root}/.work/${case_id}/source"
 clone_url="https://github.com/${project_repo}.git"
@@ -42,7 +44,10 @@ while IFS= read -r prepare_command; do
   echo "Preparing ${case_id} source (step ${prepare_step})"
   (
     cd "$source_dir"
-    PROJECT_REF="$actual_ref" bash -euo pipefail -c "$prepare_command"
+    PROJECT_REF="$actual_ref" \
+      PROJECT_TAG="$project_tag" \
+      PROJECT_L10N_SHA="$project_l10n_sha" \
+      bash -euo pipefail -c "$prepare_command"
   )
 done < <(jq -r '.docker.prepare_commands[]?' "$case_file")
 
