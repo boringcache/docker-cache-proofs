@@ -9,3 +9,7 @@ cardstack-realm-server main fresh
 dependabot-updater-core main fresh
 iggy-rust-server main fresh
 kvrocks-docker-sccache main fresh
+chatwoot-docker main fresh
+ghostfolio-docker main fresh
+open-webui-ollama main fresh
+auto-mobile-docker main fresh

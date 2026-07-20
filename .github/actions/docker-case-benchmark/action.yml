@@ -90,6 +90,10 @@ inputs:
     description: Reclaim runner disk before the Docker build. Useful for large real-world Docker images that can exhaust hosted-runner space mid-build.
     required: false
     default: 'false'
+  setup_qemu:
+    description: Register QEMU binfmt handlers for an upstream multi-platform build.
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -152,6 +156,9 @@ runs:
   - name: Prepare pinned case source tree
     run: ./scripts/prepare-case-source.sh "$CASE_ID" "$CASE_REF_KEY"
     shell: bash
+  - name: Set up QEMU for upstream multi-platform build
+    if: "${{ inputs.setup_qemu == 'true' }}"
+    uses: docker/setup-qemu-action@v3
   - name: Start local registry for push emulation
     if: "${{ inputs.build_output == 'local-registry' }}"
     run: |
