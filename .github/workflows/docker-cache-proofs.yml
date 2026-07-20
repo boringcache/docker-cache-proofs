@@ -26,6 +26,8 @@ on:
           - ghostfolio-docker
           - open-webui-ollama
           - auto-mobile-docker
+          - supabase-studio
+          - prefect-conda
       ref_key:
         description: Pinned case ref name or exact 40-character source SHA
         required: true
