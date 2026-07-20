@@ -154,7 +154,30 @@ runs:
     shell: bash
   - name: Start local registry for push emulation
     if: "${{ inputs.build_output == 'local-registry' }}"
-    run: docker run -d -p 5001:5000 --name cache-proof-registry registry:2
+    run: |
+      set -euo pipefail
+
+      # The registry is a test dependency, so keep it supervised for the full
+      # solve instead of letting a process or Docker daemon restart turn a
+      # successful build into an unrelated image-export failure.
+      docker rm -f cache-proof-registry >/dev/null 2>&1 || true
+      docker run -d \
+        --restart=always \
+        -p 5001:5000 \
+        --name cache-proof-registry \
+        registry:2
+
+      for attempt in {1..30}; do
+        if curl --fail --silent --show-error http://127.0.0.1:5001/v2/ >/dev/null; then
+          exit 0
+        fi
+        sleep 1
+      done
+
+      docker ps -a --filter name=cache-proof-registry
+      docker logs cache-proof-registry || true
+      echo "Local registry did not become ready" >&2
+      exit 1
     shell: bash
   - name: Start build timing
     id: build_timing_start
@@ -575,6 +598,25 @@ runs:
         fi
       fi
     shell: bash
+  - name: Capture local registry diagnostics
+    if: "${{ inputs.build_output == 'local-registry' && always() }}"
+    run: |
+      set -euo pipefail
+      mkdir -p benchmark-diagnostics
+      {
+        echo '## docker ps'
+        docker ps -a --filter name=cache-proof-registry || true
+        echo
+        echo '## docker inspect'
+        docker inspect cache-proof-registry || true
+        echo
+        echo '## registry logs'
+        docker logs cache-proof-registry || true
+        echo
+        echo '## registry readiness'
+        curl --fail --silent --show-error http://127.0.0.1:5001/v2/ || true
+      } > benchmark-diagnostics/local-registry.txt 2>&1
+    shell: bash
   - name: Upload build diagnostics
     if: "${{ inputs.strategy == 'boringcache' && always() }}"
     uses: actions/upload-artifact@v6
@@ -582,6 +624,13 @@ runs:
       name: benchmark-diagnostics-${{ inputs.benchmark_id }}-boringcache-${{ inputs.cache_lane }}
       path: benchmark-diagnostics/*
       if-no-files-found: ignore
+  - name: Upload local registry diagnostics
+    if: "${{ inputs.build_output == 'local-registry' && always() }}"
+    uses: actions/upload-artifact@v6
+    with:
+      name: benchmark-local-registry-${{ inputs.benchmark_id }}-${{ inputs.strategy }}-${{ inputs.cache_lane }}
+      path: benchmark-diagnostics/local-registry.txt
+      if-no-files-found: error
   - name: Upload BoringCache session summary
     if: "${{ inputs.strategy == 'boringcache' && always() }}"
     uses: actions/upload-artifact@v6
