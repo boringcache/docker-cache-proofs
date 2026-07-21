@@ -148,7 +148,7 @@ jobs:
           cli-platform: ${{ matrix.cli_platform }}
           cache-runtime: "false"
           cache-backend: boringcache
-          managed-buildkit-image: ${{ vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
+          managed-buildkit-image: ${{ vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE || 'ghcr.io/boringcache/buildkit:v0.30.0-bc' }}
           cache-tag: ${{ inputs.cache_namespace }}-${{ matrix.arch }}
           context: .work/open-webui-ollama/source
           dockerfile: .work/open-webui-ollama/source/Dockerfile
