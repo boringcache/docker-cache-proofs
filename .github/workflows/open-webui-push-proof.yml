@@ -1,0 +1,241 @@
+name: Open WebUI Native Push Proof
+run-name: ${{ format('Open WebUI push | {0} | {1}', inputs.sample, inputs.project_ref) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: Exact Open WebUI commit to build
+        required: true
+        type: string
+      sample:
+        description: Human-readable sample name
+        required: true
+        type: string
+      cache_namespace:
+        description: Stable cache namespace shared by a seed and its rolling commits
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: open-webui-push-${{ inputs.cache_namespace }}
+  cancel-in-progress: false
+
+env:
+  BORINGCACHE_API_URL: https://api.boringcache.com
+  IMAGE_REPOSITORY: ghcr.io/boringcache/open-webui-push-proof
+
+jobs:
+  build:
+    name: ${{ matrix.backend }} ${{ matrix.arch }} native push
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: registry
+            arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+            cli_platform: linux-amd64
+          - backend: registry
+            arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cli_platform: linux-arm64
+          - backend: boringcache
+            arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+            cli_platform: linux-amd64
+          - backend: boringcache
+            arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cli_platform: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_GHCR_READ_USER: ${{ vars.BORINGCACHE_GHCR_READ_USER || github.actor }}
+      BORINGCACHE_GHCR_READ_TOKEN: ${{ secrets.BORINGCACHE_GHCR_READ_TOKEN }}
+      BORINGCACHE_BUILD_MAX_ATTEMPTS: "1"
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+
+      - name: Verify native runner architecture
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          actual="$(uname -m)"
+          case "$EXPECTED_ARCH:$actual" in
+            amd64:x86_64|arm64:aarch64|arm64:arm64) ;;
+            *)
+              echo "Expected ${EXPECTED_ARCH}, got ${actual}" >&2
+              exit 1
+              ;;
+          esac
+          echo "Native runner verified: ${actual}"
+
+      - name: Prepare pinned Open WebUI source
+        shell: bash
+        run: ./scripts/prepare-case-source.sh open-webui-ollama "${{ inputs.project_ref }}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Record comparison start
+        id: timing
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "started_ms=$(date +%s%3N)"
+            echo "image_tag=run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.backend }}-${{ matrix.arch }}"
+            echo "cache_tag=cache-${{ inputs.cache_namespace }}-${{ matrix.backend }}-${{ matrix.arch }}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx for registry cache
+        if: matrix.backend == 'registry'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push with GHCR registry cache
+        if: matrix.backend == 'registry'
+        uses: docker/build-push-action@v6
+        with:
+          context: .work/open-webui-ollama/source
+          file: .work/open-webui-ollama/source/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE_REPOSITORY }}:${{ steps.timing.outputs.image_tag }}
+          cache-from: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:${{ steps.timing.outputs.cache_tag }}
+          cache-to: type=registry,ref=${{ env.IMAGE_REPOSITORY }}:${{ steps.timing.outputs.cache_tag }},mode=max
+          build-args: |
+            BUILD_HASH=${{ inputs.project_ref }}
+            USE_OLLAMA=true
+          provenance: true
+          sbom: true
+
+      - name: Build and push with BoringCache
+        if: matrix.backend == 'boringcache'
+        uses: boringcache/one@one-canary-e857cffbe965
+        with:
+          setup: none
+          mode: docker
+          workspace: boringcache/docker-cache-proof
+          cli-platform: ${{ matrix.cli_platform }}
+          cache-runtime: "false"
+          cache-backend: boringcache
+          managed-buildkit-image: ${{ vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
+          cache-tag: ${{ inputs.cache_namespace }}-${{ matrix.arch }}
+          context: .work/open-webui-ollama/source
+          dockerfile: .work/open-webui-ollama/source/Dockerfile
+          image: ${{ env.IMAGE_REPOSITORY }}
+          tags: ${{ steps.timing.outputs.image_tag }}
+          build-args: |
+            BUILD_HASH=${{ inputs.project_ref }}
+            USE_OLLAMA=true
+          platforms: ${{ matrix.platform }}
+          load: "false"
+          push: "true"
+          provenance: "true"
+          sbom: "true"
+          proxy-no-git: "true"
+          proxy-no-platform: "true"
+          no-platform: "true"
+          save-policy: auto
+          fail-on-cache-error: "true"
+          verify: wait
+          verify-require-server-signature: "true"
+          diagnostics: summary
+          metadata-hints: benchmark=open-webui-push,backend=boringcache,arch=${{ matrix.arch }},source=${{ inputs.project_ref }},sample=${{ inputs.sample }}
+
+      - name: Verify image and record image-ready time
+        id: ready
+        shell: bash
+        env:
+          STARTED_MS: ${{ steps.timing.outputs.started_ms }}
+          IMAGE_TAG: ${{ steps.timing.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          image_ref="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          docker buildx imagetools inspect "$image_ref"
+          ready_ms="$(date +%s%3N)"
+          elapsed_ms=$((ready_ms - STARTED_MS))
+          mkdir -p benchmark-timing
+          jq -n \
+            --arg backend "${{ matrix.backend }}" \
+            --arg arch "${{ matrix.arch }}" \
+            --arg platform "${{ matrix.platform }}" \
+            --arg runner "${{ matrix.runner }}" \
+            --arg sample "${{ inputs.sample }}" \
+            --arg source "${{ inputs.project_ref }}" \
+            --arg image "$image_ref" \
+            --argjson elapsed_ms "$elapsed_ms" \
+            '{backend:$backend,arch:$arch,platform:$platform,runner:$runner,sample:$sample,source:$source,image:$image,image_ready_elapsed_ms:$elapsed_ms}' \
+            > "benchmark-timing/${{ matrix.backend }}-${{ matrix.arch }}.json"
+          {
+            echo "### Open WebUI ${{ matrix.backend }} ${{ matrix.arch }}"
+            echo
+            echo "- Runner: \`${{ matrix.runner }}\`"
+            echo "- Platform: \`${{ matrix.platform }}\`"
+            echo "- Source: \`${{ inputs.project_ref }}\`"
+            echo "- Image ready and registry verified: $((elapsed_ms / 1000))s"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload timing evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: open-webui-push-${{ inputs.sample }}-${{ matrix.backend }}-${{ matrix.arch }}-${{ github.run_id }}
+          path: benchmark-timing/${{ matrix.backend }}-${{ matrix.arch }}.json
+          retention-days: 30
+
+  manifest:
+    name: Merge ${{ matrix.backend }} manifest
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        backend:
+          - registry
+          - boringcache
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Merge and verify native images
+        shell: bash
+        run: |
+          set -euo pipefail
+          amd_ref="${IMAGE_REPOSITORY}:run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.backend }}-amd64"
+          arm_ref="${IMAGE_REPOSITORY}:run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.backend }}-arm64"
+          manifest_ref="${IMAGE_REPOSITORY}:run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.backend }}"
+          docker buildx imagetools create --tag "$manifest_ref" "$amd_ref" "$arm_ref"
+          inspect="$(docker buildx imagetools inspect "$manifest_ref")"
+          printf '%s\n' "$inspect"
+          grep -q 'linux/amd64' <<< "$inspect"
+          grep -q 'linux/arm64' <<< "$inspect"
+          {
+            echo "### Open WebUI ${{ matrix.backend }} multi-platform image"
+            echo
+            echo "- Image: \`${manifest_ref}\`"
+            echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`"
+          } >> "$GITHUB_STEP_SUMMARY"
