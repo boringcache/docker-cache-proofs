@@ -89,6 +89,16 @@ jobs:
         shell: bash
         run: ./scripts/prepare-case-source.sh open-webui-ollama "${{ inputs.project_ref }}"
 
+      - name: Stabilize the upstream frontend heap limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          dockerfile=.work/open-webui-ollama/source/Dockerfile
+          sed -i \
+            's/^# ENV NODE_OPTIONS="--max-old-space-size=4096"$/ENV NODE_OPTIONS="--max-old-space-size=8192"/' \
+            "$dockerfile"
+          grep -qx 'ENV NODE_OPTIONS="--max-old-space-size=8192"' "$dockerfile"
+
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
