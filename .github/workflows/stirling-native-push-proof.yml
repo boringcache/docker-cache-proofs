@@ -1,0 +1,203 @@
+name: Stirling Native 4c Push Proof
+run-name: ${{ format('Stirling native push | {0}', inputs.project_ref) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: Exact Stirling-PDF commit to build
+        required: true
+        type: string
+      version_tag:
+        description: VERSION_TAG passed to the upstream Dockerfile
+        required: true
+        type: string
+        default: 2.14.2
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: stirling-native-push-proof
+  cancel-in-progress: false
+
+env:
+  BORINGCACHE_API_URL: https://api.boringcache.com
+  IMAGE_REPOSITORY: ghcr.io/boringcache/stirling-pdf-native-proof
+
+jobs:
+  build:
+    name: ${{ matrix.arch }} native 4c
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+            cli_platform: linux-amd64
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cli_platform: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      BORINGCACHE_RESTORE_TOKEN: ${{ secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_SAVE_TOKEN: ${{ secrets.BORINGCACHE_SAVE_TOKEN }}
+      BORINGCACHE_API_TOKEN: ${{ secrets.BORINGCACHE_API_TOKEN || secrets.BORINGCACHE_RESTORE_TOKEN }}
+      BORINGCACHE_GHCR_READ_USER: ${{ vars.BORINGCACHE_GHCR_READ_USER || github.actor }}
+      BORINGCACHE_GHCR_READ_TOKEN: ${{ secrets.BORINGCACHE_GHCR_READ_TOKEN }}
+      BORINGCACHE_BUILD_MAX_ATTEMPTS: "1"
+    steps:
+      - name: Checkout proof repo
+        uses: actions/checkout@v6
+
+      - name: Verify native runner architecture
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          actual="$(uname -m)"
+          case "$EXPECTED_ARCH:$actual" in
+            amd64:x86_64|arm64:aarch64|arm64:arm64) ;;
+            *)
+              echo "Expected ${EXPECTED_ARCH}, got ${actual}" >&2
+              exit 1
+              ;;
+          esac
+          echo "Native runner verified: ${actual}"
+
+      - name: Free disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune --all --volumes --force
+          df -h /
+
+      - name: Prepare pinned Stirling source
+        shell: bash
+        run: ./scripts/prepare-case-source.sh stirling-pdf-embedded "${{ inputs.project_ref }}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Record build start
+        id: timing
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "started_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+          echo "image_tag=run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push with BoringCache
+        uses: boringcache/one@one-canary-e857cffbe965
+        with:
+          setup: none
+          mode: docker
+          workspace: boringcache/docker-cache-proof
+          cli-platform: ${{ matrix.cli_platform }}
+          cache-runtime: "false"
+          cache-backend: boringcache
+          managed-buildkit-image: ${{ vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
+          cache-tag: stirling-native-push-${{ matrix.arch }}
+          context: .work/source
+          dockerfile: docker/embedded/Dockerfile
+          image: ${{ env.IMAGE_REPOSITORY }}
+          tags: ${{ steps.timing.outputs.image_tag }}
+          build-args: VERSION_TAG=${{ inputs.version_tag }}
+          platforms: ${{ matrix.platform }}
+          load: "false"
+          push: "true"
+          provenance: "true"
+          sbom: "true"
+          proxy-no-git: "true"
+          proxy-no-platform: "true"
+          no-platform: "true"
+          save-policy: auto
+          fail-on-cache-error: "true"
+          verify: wait
+          verify-require-server-signature: "true"
+          diagnostics: summary
+          metadata-hints: benchmark=stirling-native-push,arch=${{ matrix.arch }},source=${{ inputs.project_ref }}
+
+      - name: Verify image and record image-ready time
+        id: ready
+        shell: bash
+        env:
+          STARTED_MS: ${{ steps.timing.outputs.started_ms }}
+          IMAGE_TAG: ${{ steps.timing.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          image_ref="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          docker buildx imagetools inspect "$image_ref"
+          ready_ms="$(date +%s%3N)"
+          elapsed_ms=$((ready_ms - STARTED_MS))
+          mkdir -p benchmark-timing
+          jq -n \
+            --arg arch "${{ matrix.arch }}" \
+            --arg platform "${{ matrix.platform }}" \
+            --arg runner "${{ matrix.runner }}" \
+            --arg source "${{ inputs.project_ref }}" \
+            --arg image "$image_ref" \
+            --argjson elapsed_ms "$elapsed_ms" \
+            '{arch:$arch,platform:$platform,runner:$runner,source:$source,image:$image,image_ready_elapsed_ms:$elapsed_ms}' \
+            > "benchmark-timing/${{ matrix.arch }}.json"
+          {
+            echo "### Stirling ${{ matrix.arch }} native push"
+            echo
+            echo "- Runner: \`${{ matrix.runner }}\`"
+            echo "- Platform: \`${{ matrix.platform }}\`"
+            echo "- Image ready and registry verified: $((elapsed_ms / 1000))s"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload timing evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: stirling-native-push-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: benchmark-timing/${{ matrix.arch }}.json
+          retention-days: 30
+
+  manifest:
+    name: Merge native manifest
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Merge platform images
+        id: merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          started_ms="$(date +%s%3N)"
+          amd_ref="${IMAGE_REPOSITORY}:run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-amd64"
+          arm_ref="${IMAGE_REPOSITORY}:run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-arm64"
+          manifest_ref="${IMAGE_REPOSITORY}:run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx imagetools create --tag "$manifest_ref" "$amd_ref" "$arm_ref"
+          inspect="$(docker buildx imagetools inspect "$manifest_ref")"
+          printf '%s\n' "$inspect"
+          grep -q 'linux/amd64' <<< "$inspect"
+          grep -q 'linux/arm64' <<< "$inspect"
+          finished_ms="$(date +%s%3N)"
+          elapsed_ms=$((finished_ms - started_ms))
+          {
+            echo "### Stirling native multi-platform manifest"
+            echo
+            echo "- Image: \`${manifest_ref}\`"
+            echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`"
+            echo "- Manifest merge and verification: $((elapsed_ms / 1000))s"
+          } >> "$GITHUB_STEP_SUMMARY"
