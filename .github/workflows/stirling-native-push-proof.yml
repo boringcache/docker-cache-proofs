@@ -108,8 +108,8 @@ jobs:
           cache-backend: boringcache
           managed-buildkit-image: ${{ vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
           cache-tag: stirling-native-push-${{ matrix.arch }}
-          context: .work/source
-          dockerfile: docker/embedded/Dockerfile
+          context: .work/stirling-pdf-embedded/source
+          dockerfile: .work/stirling-pdf-embedded/source/docker/embedded/Dockerfile
           image: ${{ env.IMAGE_REPOSITORY }}
           tags: ${{ steps.timing.outputs.image_tag }}
           build-args: VERSION_TAG=${{ inputs.version_tag }}
