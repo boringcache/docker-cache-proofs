@@ -22,7 +22,7 @@
     "setup_commands": [
       "docker build -t tc-postgres:local -f dockerfiles/Dockerfile.postgres dockerfiles/"
     ],
-    "notes": "Upstream PR already added Garage S3-backed sccache on ARC runners. This lane is useful as a reference proof, not a first outreach target."
+    "notes": "Upstream already uses Garage S3-backed sccache on ARC runners, so this lane is kept as a reference comparison."
   },
   "workflow": {
     "runner_label": "ubuntu-latest",

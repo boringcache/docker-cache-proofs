@@ -7,7 +7,7 @@
     "pain_url": "https://github.com/aranya-project/aranya/issues/135",
     "workflow_url": "https://github.com/aranya-project/aranya/actions/workflows/tests.yml",
     "evidence_run": "https://github.com/aranya-project/aranya/actions/runs/26174641840",
-    "readiness": "pitch-ready"
+    "readiness": "validated"
   },
   "refs": {
     "main": "577b2193c8f63b9d91ea92165d323a91a41d851b",

@@ -199,7 +199,7 @@ jobs:
             --cold-build-seconds "$cold_build_seconds" \
             --cache-storage-bytes "0" \
             --cache-storage-source "not-probed" \
-            --hit-behavior-note "Rust/sccache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}." \
+            --hit-behavior-note "Rust/sccache benchmark. Source issue: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Status: ${{ steps.case.outputs.readiness }}." \
             --workspace "${BENCHMARK_WORKSPACE}" \
             --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
             --mode rust-sccache \
@@ -394,7 +394,7 @@ jobs:
             --cold-build-seconds "$cold_build_seconds" \
             --cache-storage-bytes "0" \
             --cache-storage-source "not-probed" \
-            --hit-behavior-note "C++/sccache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}. Non-compiler-cache setup and test/runtime work remains as the honest tail." \
+            --hit-behavior-note "C++/sccache benchmark. Source issue: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Status: ${{ steps.case.outputs.readiness }}. Non-compiler-cache setup and test/runtime work is reported separately." \
             --workspace "${BENCHMARK_WORKSPACE}" \
             --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
             --mode sccache \
@@ -625,7 +625,7 @@ jobs:
             --cold-build-seconds "$cold_build_seconds" \
             --cache-storage-bytes "0" \
             --cache-storage-source "not-probed" \
-            --hit-behavior-note "Gradle remote-cache prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}." \
+            --hit-behavior-note "Gradle remote-cache benchmark. Source issue: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Status: ${{ steps.case.outputs.readiness }}." \
             --workspace "${BENCHMARK_WORKSPACE}" \
             --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
             --mode gradle \
@@ -835,7 +835,7 @@ jobs:
             --cold-build-seconds "$cold_build_seconds" \
             --cache-storage-bytes "0" \
             --cache-storage-source "not-probed" \
-            --hit-behavior-note "Bazel/devcontainer prospect proof. Pain: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Readiness: ${{ steps.case.outputs.readiness }}." \
+            --hit-behavior-note "Bazel/devcontainer benchmark. Source issue: ${{ steps.case.outputs.pain_url }}. Upstream run: ${{ steps.case.outputs.evidence_run }}. Status: ${{ steps.case.outputs.readiness }}." \
             --workspace "${BENCHMARK_WORKSPACE}" \
             --cache-tag "${{ steps.scope.outputs.cache_tag }}" \
             --mode bazel \
