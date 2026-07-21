@@ -413,7 +413,7 @@ write_build_diagnostics() {
   } > "$output_path"
 }
 
-run_tool_cache_build() {
+run_wrapped_boringcache_build() {
   local phase_hint="cold"
   if [[ "$mode" == "rolling" ]]; then
     phase_hint="commit"
@@ -535,8 +535,8 @@ while true; do
     exit 1
   fi
 
-  if [[ "${#tool_cache_args[@]}" -gt 0 ]]; then
-    run_tool_cache_build
+  if [[ "$buildkit_cache_backend" == "boringcache" || "${#tool_cache_args[@]}" -gt 0 ]]; then
+    run_wrapped_boringcache_build
   else
     require_readable_cache_import
     start_proxy
@@ -596,6 +596,9 @@ while true; do
     echo "=== End proxy log ==="
     write_build_metrics
     write_build_diagnostics
+    if [[ "$buildkit_cache_backend" == "boringcache" ]]; then
+      "$(dirname "${BASH_SOURCE[0]}")/assert-boringcache-docker-product-run.sh" "${BORINGCACHE_OBSERVABILITY_JSONL_PATH:-}"
+    fi
     break
   fi
 
