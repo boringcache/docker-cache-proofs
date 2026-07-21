@@ -38,8 +38,10 @@ on:
           - heyform-community
           - grist-oss
           - openstatus-dashboard
+          - openstatus-dashboard-arm64
           - karakeep-aio
           - anythingllm-primary
+          - anythingllm-primary-arm64
           - misskey-develop-amd64
           - omninode-runtime
           - vellum-assistant
