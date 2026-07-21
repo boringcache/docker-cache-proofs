@@ -13,6 +13,11 @@ on:
         required: true
         type: string
         default: 2.14.2
+      cache_namespace:
+        description: Stable cache namespace; use a fresh value for a cold control
+        required: true
+        type: string
+        default: stirling-native-push
 
 permissions:
   contents: read
@@ -107,7 +112,7 @@ jobs:
           cache-runtime: "false"
           cache-backend: boringcache
           managed-buildkit-image: ${{ vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
-          cache-tag: stirling-native-push-${{ matrix.arch }}
+          cache-tag: ${{ inputs.cache_namespace }}-${{ matrix.arch }}
           context: .work/stirling-pdf-embedded/source
           dockerfile: .work/stirling-pdf-embedded/source/docker/embedded/Dockerfile
           image: ${{ env.IMAGE_REPOSITORY }}
@@ -126,7 +131,7 @@ jobs:
           verify: wait
           verify-require-server-signature: "true"
           diagnostics: summary
-          metadata-hints: benchmark=stirling-native-push,arch=${{ matrix.arch }},source=${{ inputs.project_ref }}
+          metadata-hints: benchmark=stirling-native-push,arch=${{ matrix.arch }},source=${{ inputs.project_ref }},cache_namespace=${{ inputs.cache_namespace }}
 
       - name: Verify image and record image-ready time
         id: ready
