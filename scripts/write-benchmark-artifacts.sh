@@ -1697,12 +1697,12 @@ fi
 if [[ "$single_phase_proof" == "true" ]]; then
   runs_payload="$(jq -n -c \
     --arg lane "$lane" \
-    --arg label "$first_build_label_value" \
+    --arg measured_label "$first_build_label_value" \
     --argjson measured_seconds "$(json_num_or_null "$cold_seconds")" \
     --argjson measured_build_seconds "$(json_num_or_null "$cold_build_seconds")" \
     --argjson measured_setup_seconds "$(json_num_or_null "$cold_setup_seconds")" \
     '{
-      "measured_label": $label,
+      "measured_label": $measured_label,
       "measured_seconds": $measured_seconds,
       "measured_build_seconds": $measured_build_seconds,
       "measured_restore_or_setup_seconds": $measured_setup_seconds,
