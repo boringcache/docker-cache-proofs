@@ -67,6 +67,7 @@ fi
 
 extra_args="$(
   {
+    jq -r '.docker.extra_args[]?' "$case_file"
     jq -r --arg project_ref "$project_ref" '.docker.build_args[]? | gsub("\\{PROJECT_REF\\}"; $project_ref) | "--build-arg=" + .' "$case_file"
     target="$(jq -r '.docker.target // empty' "$case_file")"
     if [[ -n "$target" ]]; then
