@@ -68,7 +68,7 @@ on:
           - load
           - local-registry
       prewarm_buildkit_image:
-        description: "Optional experimental BuildKit image for the BoringCache backend lane."
+        description: "Optional managed BuildKit image override. Defaults to the stable managed channel."
         required: false
         type: string
         default: ""
@@ -336,7 +336,7 @@ jobs:
   boringcache-buildkit-backend:
     name: ${{ needs.case.outputs.docker_tool_cache != '' && 'BC BuildKit Backend + toolcache' || 'BC BuildKit Backend' }}
     needs: case
-    if: ${{ github.event_name != 'pull_request' && (inputs.prewarm_buildkit_image != '' || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE != '') }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ${{ needs.case.outputs.runner_label }}
     timeout-minutes: 180
     env:
@@ -407,6 +407,6 @@ jobs:
           cli_platform: ${{ needs.case.outputs.cli_platform }}
           setup_qemu: ${{ needs.case.outputs.setup_qemu }}
           benchmark_workspace: boringcache/docker-cache-proof
-          buildkit_image: ${{ inputs.prewarm_buildkit_image || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE }}
+          buildkit_image: ${{ inputs.prewarm_buildkit_image || vars.DOCKER_CACHE_PROOFS_PREWARM_BUILDKIT_IMAGE || 'ghcr.io/boringcache/buildkit:v0.30.0-bc' }}
           buildkit_cache_backend: boringcache
           cli_version: ${{ inputs.cli_version }}
