@@ -386,7 +386,7 @@ while true; do
     exit 1
   fi
 
-  run_tool_cache_build
+  run_wrapped_boringcache_build
 
   if [[ "$status" -eq 0 ]]; then
     verify_expected_cache_backend
