@@ -14,10 +14,13 @@ Each case pins an upstream repository and source revision so fresh and rolling r
 Docker cases compare:
 
 - GitHub Actions Cache
-- BoringCache OCI cache
-- BoringCache BuildKit backend
+- BoringCache's CLI-managed BuildKit backend
 
 Fresh runs seed an isolated cache from the pinned source. Rolling runs build a later pinned revision against the same stable cache scope.
+
+BoringCache has one Docker cache product path in these proofs. The CLI owns the
+builder and emits the native `type=boringcache` cache configuration; registry
+cache and alternate-backend benchmark lanes have been retired.
 
 ## Workflows
 

@@ -71,7 +71,7 @@ jobs:
               -f "ref_key=${ref_key}" \
               -f cache_lane=fresh \
               -f "build_output=${output}" \
-              -f "prewarm_buildkit_image=${BUILDKIT_IMAGE}" \
+              -f "buildkit_image=${BUILDKIT_IMAGE}" \
               -f "cli_version=${CLI_VERSION}")"
             run_ids+=("${RUN_URL##*/}")
             echo "Canary benchmark: ${RUN_URL}"
