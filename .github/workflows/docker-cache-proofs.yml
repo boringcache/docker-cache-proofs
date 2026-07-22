@@ -258,6 +258,7 @@ jobs:
           build_output: ${{ inputs.build_output }}
           runner_label: ${{ needs.case.outputs.runner_label }}
           cli_platform: ${{ needs.case.outputs.cli_platform }}
+          cli_version: ${{ inputs.cli_version }}
           setup_qemu: ${{ needs.case.outputs.setup_qemu }}
           benchmark_workspace: boringcache/docker-cache-proof
 
