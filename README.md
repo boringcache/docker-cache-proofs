@@ -30,6 +30,7 @@ Fresh runs seed an isolated cache from the pinned source. Rolling runs build a l
 - [`Docker Cache Proof`](.github/workflows/docker-cache-proofs.yml)
 - [`Tool Cache Proof`](.github/workflows/tool-cache-proofs.yml)
 - [`Archive Cache Proof`](.github/workflows/archive-cache-proofs.yml)
+- [`Canary Benchmark`](.github/workflows/canary-dispatch.yml) runs the selected canary CLI and BuildKit image against the curated Docker cases in [`.canary/candidates.txt`](.canary/candidates.txt).
 
 ## Output
 
