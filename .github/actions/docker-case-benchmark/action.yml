@@ -125,7 +125,7 @@ runs:
       password: "${{ env.BORINGCACHE_GHCR_READ_TOKEN || github.token }}"
   - name: Install BoringCache CLI with boringcache/one
     if: "${{ inputs.strategy == 'boringcache' }}"
-    uses: boringcache/one@one-canary-e857cffbe965
+    uses: boringcache/one@one-canary-c94c9b2c513d
     with:
       setup: none
       mode: archive
@@ -485,7 +485,7 @@ runs:
       path: .benchmark-config
   - name: Install BoringCache CLI with boringcache/one
     if: "${{ inputs.strategy == 'boringcache' }}"
-    uses: boringcache/one@one-canary-e857cffbe965
+    uses: boringcache/one@one-canary-c94c9b2c513d
     with:
       setup: none
       mode: archive
@@ -678,7 +678,7 @@ runs:
     env:
       BORINGCACHE_API_TOKEN: "${{ env.BORINGCACHE_API_TOKEN || env.BORINGCACHE_RESTORE_TOKEN }}"
       BENCHMARK_CLI_VERSION: "${{ inputs.cli_version }}"
-      BENCHMARK_ACTION_REF: boringcache/one@one-canary-e857cffbe965
+      BENCHMARK_ACTION_REF: boringcache/one@one-canary-c94c9b2c513d
     run: |
       cache_summary_args=()
       if [[ -s benchmark-session-summary/benchmark-session-summary.json ]]; then
