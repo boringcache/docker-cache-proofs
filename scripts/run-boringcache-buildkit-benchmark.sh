@@ -8,10 +8,6 @@ status_snapshot_path="$(mktemp /tmp/boringcache-status.XXXXXX)"
 max_attempts=1
 cache_export_pattern='expected sha256:.*got sha256:e3b0|error writing layer blob|400 Bad Request|broken pipe'
 mode="${1:-rolling}"
-backend="${BUILDKIT_BACKEND:-registry}"
-buildkit_cache_backend="${BORINGCACHE_BUILDKIT_CACHE_BACKEND:-${BORINGCACHE_CACHE_EXPORT_TYPE:-}}"
-cache_export_type="$buildkit_cache_backend"
-effective_cache_to=""
 cache_import_ready="${BORINGCACHE_CACHE_IMPORT_READY:-true}"
 cache_requested_from_refs="${BORINGCACHE_CACHE_REQUESTED_FROM_REFS:-}"
 cache_used_from_refs="${BORINGCACHE_CACHE_USED_FROM_REFS:-}"
@@ -20,64 +16,7 @@ cache_promotion_refs="${BORINGCACHE_DOCKER_PROMOTION_REFS:-}"
 allow_rolling_bootstrap="${ALLOW_BORINGCACHE_ROLLING_BOOTSTRAP:-false}"
 build_output="${BENCHMARK_BUILD_OUTPUT:-none}"
 docker_tool_cache="${DOCKER_TOOL_CACHE:-}"
-oci_hydration="${BORINGCACHE_OCI_HYDRATION:-metadata-only}"
 export BORINGCACHE_OBSERVABILITY_INCLUDE_CACHE_OPS="${BORINGCACHE_OBSERVABILITY_INCLUDE_CACHE_OPS:-1}"
-case "$backend" in
-  registry | "")
-    backend="registry"
-    ;;
-  *)
-    echo "Unsupported BoringCache BuildKit backend: ${backend}. The Docker proof lane uses the registry/proxy backend; set buildkit_cache_backend=boringcache for the managed BuildKit cache backend." >&2
-    exit 1
-    ;;
-esac
-start_proxy() { :; }
-stop_proxy() { :; }
-ensure_proxy_available() {
-  local started elapsed
-  started="$(date +%s)"
-  while true; do
-    if curl -fsS "http://127.0.0.1:${proxy_port}/_boringcache/status" -o "$status_snapshot_path" 2>/dev/null; then
-      return 0
-    fi
-    elapsed=$(($(date +%s) - started))
-    if (( elapsed >= 5 )); then
-      return 1
-    fi
-    sleep 1
-  done
-}
-flush_action_proxy() {
-  local pid_file="${BORINGCACHE_PROXY_PID_FILE:-/tmp/boringcache-proxy.pid}"
-  [[ -s "$pid_file" ]] || return 0
-
-  local pid=""
-  pid="$(tr -d '[:space:]' < "$pid_file" 2>/dev/null || true)"
-  [[ "$pid" =~ ^[0-9]+$ ]] || return 0
-
-  if ! kill -0 "$pid" 2>/dev/null; then
-    echo "Registry proxy (PID: $pid) already exited"
-    return 0
-  fi
-
-  echo "Stopping registry proxy (PID: $pid)..."
-  if ! kill -TERM "$pid" 2>/dev/null; then
-    echo "Failed to send SIGTERM to registry proxy (PID: $pid); continuing"
-    return 0
-  fi
-
-  local started elapsed
-  started="$(date +%s)"
-  while kill -0 "$pid" 2>/dev/null; do
-    sleep 1
-    elapsed=$(($(date +%s) - started))
-    if (( elapsed > 0 && elapsed % 30 == 0 )); then
-      echo "Waiting for registry proxy to flush and exit... (${elapsed}s elapsed)"
-    fi
-  done
-  elapsed=$(($(date +%s) - started))
-  echo "Registry proxy exited gracefully after ${elapsed}s"
-}
 cleanup() { :; }
 trap cleanup EXIT
 
@@ -92,31 +31,6 @@ find_step_seconds() {
   sed -nE "s/^#${step_id} DONE ([0-9]+(\\.[0-9]+)?)s$/\\1/p" "$build_log" | tail -n1
 }
 
-cache_to_ref() {
-  local ref="${CACHE_TO:-}"
-  [[ -n "$ref" ]] || return 0
-  if [[ -z "$cache_export_type" ]]; then
-    printf '%s\n' "$ref"
-    return 0
-  fi
-  case "$cache_export_type" in
-    registry|boringcache)
-      ;;
-    *)
-      echo "Unsupported BuildKit cache backend: ${cache_export_type}" >&2
-      exit 1
-      ;;
-  esac
-  case "$ref" in
-    type=*,*)
-      printf 'type=%s,%s\n' "$cache_export_type" "${ref#type=*,}"
-      ;;
-    *)
-      printf '%s\n' "$ref"
-      ;;
-  esac
-}
-
 write_build_metrics() {
   local output_path="${BENCHMARK_METRICS_OUTPUT:-}"
   [[ -n "$output_path" ]] || return 0
@@ -129,7 +43,7 @@ write_build_metrics() {
   local cached_steps=""
 
   import_step="$(find_step_id "importing cache manifest from")"
-  export_step="$(find_step_id "exporting cache to (registry|boringcache)")"
+  export_step="$(find_step_id "exporting cache to boringcache")"
   import_seconds="$(find_step_seconds "$import_step")"
   export_seconds="$(find_step_seconds "$export_step")"
   import_status="$(build_import_status)"
@@ -231,27 +145,10 @@ write_build_metrics() {
 }
 
 verify_expected_cache_backend() {
-  local expected="${buildkit_cache_backend:-registry}"
-  case "$expected" in
-    boringcache)
-      if ! grep -qE '^#[0-9]+ exporting cache to boringcache$' "$build_log"; then
-        echo "Expected the managed type=boringcache exporter, but the build did not report 'exporting cache to boringcache'." >&2
-        echo "Refusing to publish a mislabeled BuildKit-backend benchmark sample." >&2
-        return 1
-      fi
-      ;;
-    registry | "")
-      if ! grep -qE '^#[0-9]+ exporting cache to registry$' "$build_log"; then
-        echo "Expected the registry cache exporter, but the build did not report 'exporting cache to registry'." >&2
-        echo "Refusing to publish a mislabeled registry benchmark sample." >&2
-        return 1
-      fi
-      ;;
-    *)
-      echo "Unsupported expected BuildKit cache backend: ${expected}" >&2
-      return 1
-      ;;
-  esac
+  if ! grep -qE '^#[0-9]+ exporting cache to boringcache$' "$build_log"; then
+    echo "Expected the managed type=boringcache exporter, but the build did not report 'exporting cache to boringcache'." >&2
+    return 1
+  fi
 }
 
 parse_tool_cache_args() {
@@ -357,8 +254,7 @@ write_build_diagnostics() {
   mkdir -p "$(dirname "$output_path")"
   {
     echo "strategy=boringcache"
-    echo "buildkit_backend=${backend}"
-    echo "buildkit_cache_backend=${buildkit_cache_backend:-registry}"
+    echo "buildkit_backend=boringcache"
     echo "mode=${mode}"
     echo "builder=${BUILDER:-}"
     echo "cache_scope=${CACHE_SCOPE:-}"
@@ -368,9 +264,6 @@ write_build_diagnostics() {
     echo "cache_used_from_refs=${cache_used_from_refs}"
     echo "cache_unreadable_from_refs=${cache_unreadable_from_refs}"
     echo "cache_promotion_refs=${cache_promotion_refs}"
-    echo "cache_to=${effective_cache_to:-${CACHE_TO:-}}"
-    echo "cache_export_type=${cache_export_type:-}"
-    echo "registry_proxy_tags=${BORINGCACHE_REGISTRY_PROXY_TAGS:-}"
     echo "blob_download_concurrency_override=${BORINGCACHE_BLOB_DOWNLOAD_CONCURRENCY:-}"
     echo "blob_prefetch_concurrency_override=${BORINGCACHE_BLOB_PREFETCH_CONCURRENCY:-}"
     echo "oci_stream_through_min_bytes=${BORINGCACHE_OCI_STREAM_THROUGH_MIN_BYTES:-}"
@@ -383,7 +276,7 @@ write_build_diagnostics() {
     grep -E 'importing cache manifest|failed to configure .*cache importer|inferred cache manifest type' "$build_log" || true
     echo "EOF"
     echo "export_lines<<EOF"
-    grep -E 'exporting cache to (registry|boringcache)|DONE [0-9.]+s$' "$build_log" | tail -n 80 || true
+    grep -E 'exporting cache to boringcache|DONE [0-9.]+s$' "$build_log" | tail -n 80 || true
     echo "EOF"
     echo "proxy_summary<<EOF"
     grep -E 'Mode:|OCI Human Tags|Internal Registry Root Tag|Startup mode|Full-tag hydration|OCI body hydration|OCI HEAD|SESSION tool=oci|KV flush|root publish|error|warn' "$proxy_log" | tail -n 160 || true
@@ -419,62 +312,32 @@ run_wrapped_boringcache_build() {
     phase_hint="commit"
   fi
 
-  local tool_cache_backend="${buildkit_cache_backend:-registry}"
-  case "$tool_cache_backend" in
-    boringcache | registry)
-      ;;
-    *)
-      echo "Unsupported Docker tool-cache BuildKit backend: ${tool_cache_backend}" >&2
-      exit 1
-      ;;
-  esac
-
-  local proxy_address_args=()
-  if [[ "$tool_cache_backend" == "registry" ]]; then
-    proxy_address_args=(
-      --host "${DOCKER_TOOL_CACHE_PROXY_HOST:-127.0.0.1}"
-      --endpoint-host "${DOCKER_TOOL_CACHE_ENDPOINT_HOST:-127.0.0.1}"
-    )
-  fi
-
   local boringcache_args=(
     docker
     --workspace "${BENCHMARK_WORKSPACE:?Set BENCHMARK_WORKSPACE}"
     --tag "${CACHE_SCOPE:?Set CACHE_SCOPE}"
-    --backend "$tool_cache_backend"
     --port "$proxy_port"
-    "${proxy_address_args[@]}"
     --cache-mode max
     --no-platform
     --no-git
-    --oci-hydration "$oci_hydration"
     --metadata-hint "benchmark=${BENCHMARK_ID:-docker}"
     --metadata-hint "phase=${phase_hint}"
     --metadata-hint "lane=${CACHE_LANE:-fresh}"
-    --metadata-hint "backend=${tool_cache_backend}"
+    --metadata-hint "backend=boringcache"
     --fail-on-cache-error
   )
   boringcache_args+=("${tool_cache_args[@]}")
 
-  local builder="${TOOL_CACHE_BUILDER:-${BUILDER:-}}"
-  local builder_args=()
-  if [[ "$tool_cache_backend" == "registry" && -n "$builder" ]]; then
-    builder_args=(--builder "$builder")
-  fi
-
-  # The managed type=boringcache lifecycle owns its builder and derives the
-  # exact cache import/export specs from --tag. Hand-authored cache flags or a
-  # user-selected builder would bypass the product path being benchmarked.
-  local wrapped_cache_args=("${cache_args[@]}")
-  if [[ "$tool_cache_backend" == "boringcache" ]]; then
-    wrapped_cache_args=()
-  fi
+  local wrapped_cache_args=()
+  local cache_arg
+  for cache_arg in "${cache_args[@]}"; do
+    [[ "$cache_arg" == "--no-cache" ]] && wrapped_cache_args+=("$cache_arg")
+  done
 
   : > "$build_log"
   set +e
   DOCKER_BUILDKIT=1 BORINGCACHE_TIMING_TRACE=1 boringcache "${boringcache_args[@]}" -- \
     docker buildx build \
-    "${builder_args[@]}" \
     --file "$DOCKERFILE_PATH" \
     --tag "$IMAGE_TAG" \
     --progress=plain \
@@ -493,7 +356,6 @@ while true; do
   extra_args=()
   output_args=()
   tool_cache_args=()
-  effective_cache_to=""
   while IFS= read -r arg; do
     [[ -n "$arg" ]] || continue
     extra_args+=("$arg")
@@ -516,57 +378,15 @@ while true; do
   esac
 
   if [[ "$mode" == "rolling" ]]; then
-    if [[ "$backend" == "registry" ]]; then
-      cache_from_import_arg_available && cache_args+=(--cache-from "$CACHE_FROM")
-      effective_cache_to="$(cache_to_ref)"
-      [[ -n "$effective_cache_to" ]] && cache_args+=(--cache-to "$effective_cache_to")
-    fi
+    :
   elif [[ "$mode" == "fresh" ]]; then
-    # --no-cache is required for type=registry export: without it, buildx
-    # sees cached layers from the builder and skips pushing blobs to the
-    # registry proxy, so the proxy never uploads to BoringCache backend.
     cache_args=(--no-cache)
-    if [[ "$backend" == "registry" ]]; then
-      effective_cache_to="$(cache_to_ref)"
-      [[ -n "$effective_cache_to" ]] && cache_args+=(--cache-to "$effective_cache_to")
-    fi
   else
     echo "Unknown build mode: $mode" >&2
     exit 1
   fi
 
-  if [[ "$buildkit_cache_backend" == "boringcache" || "${#tool_cache_args[@]}" -gt 0 ]]; then
-    run_wrapped_boringcache_build
-  else
-    require_readable_cache_import
-    start_proxy
-    if ! ensure_proxy_available; then
-      echo "Registry proxy status was unavailable before build start (attempt ${attempt}/${max_attempts})" >&2
-      tail -n 200 "$proxy_log" || true
-      if [[ "$attempt" -ge "$max_attempts" ]]; then
-        write_build_diagnostics
-        exit 1
-      fi
-      stop_proxy
-      attempt=$((attempt + 1))
-      sleep 3
-      continue
-    fi
-
-    : > "$build_log"
-    set +e
-    DOCKER_BUILDKIT=1 docker buildx build \
-      --builder "$BUILDER" \
-      --file "$DOCKERFILE_PATH" \
-      --tag "$IMAGE_TAG" \
-      --progress=plain \
-      "${extra_args[@]}" \
-      "${cache_args[@]}" \
-      "${output_args[@]}" \
-      "$BENCHMARK_DOCKER_CONTEXT" 2>&1 | tee "$build_log"
-    status=${PIPESTATUS[0]}
-    set -e
-  fi
+  run_tool_cache_build
 
   if [[ "$status" -eq 0 ]]; then
     verify_expected_cache_backend
@@ -576,31 +396,19 @@ while true; do
       capture_proxy_status
       write_build_metrics
       write_build_diagnostics
-      echo "Build succeeded but registry cache export reported an error; failing benchmark." >&2
+      echo "Build succeeded but managed cache export reported an error; failing benchmark." >&2
       tail -n 200 "$build_log" || true
       tail -n 400 "$proxy_log" || true
-      stop_proxy
       exit 1
     fi
     capture_proxy_status
-    if [[ "$backend" == "registry" && "$mode" =~ ^(fresh|rolling)$ ]]; then
-      # Stop proxy gracefully so it can flush pending uploads.
-      if [[ "${#tool_cache_args[@]}" -eq 0 ]]; then
-        echo "Flushing proxy cache to backend..."
-        flush_action_proxy
-      fi
-    fi
-    # Dump proxy log for diagnostics
-    echo "=== Proxy log (${mode}, last 200 lines) ==="
+    echo "=== Managed cache log (${mode}, last 200 lines) ==="
     tail -n 200 "$proxy_log" 2>/dev/null || true
-    echo "=== End proxy log ==="
+    echo "=== End managed cache log ==="
     write_build_metrics
     write_build_diagnostics
     break
   fi
-
-  stop_proxy
-
 
   if [[ "$attempt" -ge "$max_attempts" ]]; then
     echo "Build (${mode}) failed after ${max_attempts} attempts" >&2

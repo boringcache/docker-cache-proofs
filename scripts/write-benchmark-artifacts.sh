@@ -1602,7 +1602,6 @@ strategy_label() {
   case "$1" in
     actions-cache) echo "GHA" ;;
     boringcache) echo "BC" ;;
-    ecr-cache) echo "ECR" ;;
     depot-cache) echo "Depot" ;;
     buildbuddy-cache) echo "BuildBuddy" ;;
     *) echo "$1" ;;
