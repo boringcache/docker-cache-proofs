@@ -1,4 +1,4 @@
-name: Docker Cache Proof
+name: Docker Benchmark
 run-name: >-
   ${{ format('{0} | {1} | {2} | output={3}', inputs.case_id, inputs.ref_key, inputs.cache_lane, inputs.build_output) }}
 
@@ -83,7 +83,7 @@ on:
         type: string
         default: ""
       lane_filter:
-        description: "Run every backend, only BoringCache BuildKit, or the GHA versus BoringCache proof pair."
+        description: "Run every backend, only BoringCache BuildKit, or the GHA versus BoringCache comparison."
         required: true
         type: choice
         default: all
@@ -166,7 +166,7 @@ jobs:
           df -h /
           docker system df || true
 
-      - name: Run GitHub Actions Cache proof
+      - name: Run GitHub Actions Cache benchmark
         uses: ./.github/actions/docker-case-benchmark
         with:
           strategy: actions-cache
@@ -238,7 +238,7 @@ jobs:
           df -h /
           docker system df || true
 
-      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache OCI + toolcache proof' || 'Run BoringCache OCI proof' }}
+      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache OCI + toolcache benchmark' || 'Run BoringCache OCI benchmark' }}
         uses: ./.github/actions/docker-case-benchmark
         with:
           strategy: boringcache
@@ -314,7 +314,7 @@ jobs:
           df -h /
           docker system df || true
 
-      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache BuildKit Backend + toolcache proof' || 'Run BoringCache BuildKit Backend proof' }}
+      - name: ${{ needs.case.outputs.docker_tool_cache != '' && 'Run BoringCache BuildKit Backend + toolcache benchmark' || 'Run BoringCache BuildKit Backend benchmark' }}
         uses: ./.github/actions/docker-case-benchmark
         with:
           strategy: boringcache

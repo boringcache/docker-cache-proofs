@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   dispatch:
-    name: Run Docker proof canaries
+    name: Run Docker benchmark canaries
     runs-on: ubuntu-latest
     steps:
       - name: Checkout canary cases

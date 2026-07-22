@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo="boringcache/docker-cache-proofs"
-workflow="Docker Cache Proof"
+workflow="Docker Benchmark"
 workflow_ref="main"
 case_id=""
 fresh_ref="main"

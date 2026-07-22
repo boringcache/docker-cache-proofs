@@ -1,6 +1,6 @@
 ---
 name: Docker case benchmark
-description: Run one Docker cache proof backend inside a single visible job.
+description: Run one Docker cache backend benchmark inside a single visible job.
 inputs:
   strategy:
     required: true
