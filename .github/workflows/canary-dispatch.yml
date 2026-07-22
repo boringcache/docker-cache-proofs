@@ -1,14 +1,14 @@
 name: "Canary Benchmark"
-run-name: ${{ format('Canary | CLI {0} | BuildKit {1}', inputs.cli_version, inputs.buildkit_image) }}
+run-name: ${{ format('Canary | CLI {0} | BuildKit {1}', inputs.cli_version || 'latest immutable', inputs.buildkit_image) }}
 
 on:
   workflow_dispatch:
     inputs:
       cli_version:
-        description: "BoringCache CLI release tag to test."
-        required: true
+        description: "Exact BoringCache CLI release tag. Empty selects the newest immutable CLI canary."
+        required: false
         type: string
-        default: vcli-canary
+        default: ""
       buildkit_image:
         description: "BoringCache BuildKit image to test."
         required: true
@@ -47,6 +47,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ -z "$CLI_VERSION" ]]; then
+            CLI_VERSION="$(gh release list --repo boringcache/cli --limit 100 --json tagName,publishedAt --jq '[.[] | select(.tagName | startswith("vcli-canary-"))] | sort_by(.publishedAt) | reverse | .[0].tagName')"
+          fi
+          if [[ -z "$CLI_VERSION" || "$CLI_VERSION" == "null" ]]; then
+            echo "::error::No immutable BoringCache CLI canary release was found."
+            exit 1
+          fi
+
+          run_ids=()
           while IFS= read -r line; do
             line="${line%%#*}"
             line="$(echo "$line" | xargs || true)"
@@ -55,7 +64,7 @@ jobs:
             read -r case_id ref_key _candidate_lane candidate_output <<< "$line"
             output="${candidate_output:-$BUILD_OUTPUT}"
 
-            gh workflow run docker-cache-proofs.yml \
+            RUN_URL="$(gh workflow run docker-cache-proofs.yml \
               --repo "$GITHUB_REPOSITORY" \
               --ref "${{ github.ref_name }}" \
               -f "case_id=${case_id}" \
@@ -63,5 +72,11 @@ jobs:
               -f cache_lane=fresh \
               -f "build_output=${output}" \
               -f "prewarm_buildkit_image=${BUILDKIT_IMAGE}" \
-              -f "cli_version=${CLI_VERSION}"
+              -f "cli_version=${CLI_VERSION}")"
+            run_ids+=("${RUN_URL##*/}")
+            echo "Canary benchmark: ${RUN_URL}"
           done < .canary/candidates.txt
+
+          for run_id in "${run_ids[@]}"; do
+            gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+          done
