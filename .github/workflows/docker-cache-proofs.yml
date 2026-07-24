@@ -32,6 +32,12 @@ on:
           - prefect-conda
           - teable-community
           - formbricks-web
+          - semantic-router-extproc-rocm
+          - sglang-gateway
+          - sglang-gateway-sccache
+          - baserow-backend-ci
+          - mosoo-multiarch
+          - librechat-api-smoke
           - umami-release
           - hoppscotch-backend
           - hoppscotch-backend-arm64

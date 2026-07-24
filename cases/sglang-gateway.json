@@ -1,0 +1,27 @@
+{
+  "id": "sglang-gateway",
+  "name": "SGLang model gateway image",
+  "source": {
+    "repo": "sgl-project/sglang",
+    "pain_url": "https://github.com/sgl-project/sglang/actions/runs/27961181564",
+    "evidence_run": "https://github.com/sgl-project/sglang/actions/runs/27961181564/job/82742814818",
+    "runner": "GitHub-hosted ubuntu-24.04"
+  },
+  "refs": {
+    "main": "edafcde3ebeb4408ab685c28aff9057757c39ed3",
+    "seed": "beb429ff4dcdf11046e3e094574422060f3e7ec9",
+    "rolling1": "2d15b4fd821a3380c5e10ab005c9ae38225cc5db",
+    "rolling2": "edafcde3ebeb4408ab685c28aff9057757c39ed3"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "docker/gateway.Dockerfile",
+    "image": "sglang-gateway",
+    "platform": "linux/amd64",
+    "original_cache": "type=gha,mode=max"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-24.04",
+    "free_disk_space": true
+  }
+}

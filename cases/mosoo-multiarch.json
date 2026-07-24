@@ -1,0 +1,31 @@
+{
+  "id": "mosoo-multiarch",
+  "name": "LangGenius Mosoo multi-platform image",
+  "source": {
+    "repo": "langgenius/mosoo",
+    "pain_url": "https://github.com/langgenius/mosoo/actions/runs/30090923444",
+    "evidence_run": "https://github.com/langgenius/mosoo/actions/runs/30090923444/job/89473857616",
+    "runner": "GitHub-hosted ubuntu-latest with QEMU"
+  },
+  "refs": {
+    "main": "335ca2a3046e451a570c660a5b457671b7a68951",
+    "seed": "cabb7cfb6493cee4cda1469f4ef6f518ec996dec",
+    "rolling1": "ad3fa611e080095f17d8bc4bf843e808a249fa92",
+    "rolling2": "335ca2a3046e451a570c660a5b457671b7a68951"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile",
+    "image": "mosoo",
+    "platform": "linux/amd64,linux/arm64",
+    "build_args": [
+      "VERSION=sha-{PROJECT_REF}",
+      "VCS_REF={PROJECT_REF}"
+    ],
+    "original_cache": "type=gha,mode=max,scope=mosoo-container"
+  },
+  "workflow": {
+    "free_disk_space": true,
+    "setup_qemu": true
+  }
+}

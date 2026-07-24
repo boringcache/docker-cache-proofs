@@ -1,0 +1,27 @@
+{
+  "id": "baserow-backend-ci",
+  "name": "Baserow backend CI image",
+  "source": {
+    "repo": "baserow/baserow",
+    "pain_url": "https://github.com/baserow/baserow/actions/runs/30092360775",
+    "evidence_run": "https://github.com/baserow/baserow/actions/runs/30092360775/job/89478296284",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "refs": {
+    "main": "8f43f8562aed5e0d3d4a66b45a1fb8875a0a9dac",
+    "seed": "8f586fdfeb4cb6720403ac249de0a217a3c39757",
+    "rolling1": "33c0758dda875f7053f8cb146f3e9421b4421dbf",
+    "rolling2": "8f43f8562aed5e0d3d4a66b45a1fb8875a0a9dac"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "backend/Dockerfile",
+    "image": "baserow-backend-ci",
+    "platform": "linux/amd64",
+    "target": "ci",
+    "original_cache": "type=gha,scope=backend-ci,mode=max"
+  },
+  "workflow": {
+    "free_disk_space": true
+  }
+}

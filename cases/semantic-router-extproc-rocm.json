@@ -1,0 +1,33 @@
+{
+  "id": "semantic-router-extproc-rocm",
+  "name": "vLLM Semantic Router ROCm extproc image",
+  "source": {
+    "repo": "vllm-project/semantic-router",
+    "pain_url": "https://github.com/vllm-project/semantic-router/actions/runs/30077243339",
+    "evidence_run": "https://github.com/vllm-project/semantic-router/actions/runs/30077243339/job/89430603692",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "refs": {
+    "main": "517f0ddf194fa849500baa5c92726bf369f6815d",
+    "seed": "7c5046b711196c47800d5056e9f7dd130c16429e",
+    "rolling1": "ead202881fe79d8fa4cc502d9d34f03e6427d643",
+    "rolling2": "517f0ddf194fa849500baa5c92726bf369f6815d"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "tools/docker/Dockerfile.extproc-rocm",
+    "image": "semantic-router-extproc-rocm",
+    "platform": "linux/amd64",
+    "build_args": [
+      "BUILDKIT_INLINE_CACHE=1",
+      "CARGO_BUILD_JOBS=8",
+      "CARGO_INCREMENTAL=1",
+      "RUSTC_WRAPPER=",
+      "CARGO_NET_GIT_FETCH_WITH_CLI=true"
+    ],
+    "original_cache": "type=gha,mode=max,scope=extproc-rocm-amd64,ignore-error=true"
+  },
+  "workflow": {
+    "free_disk_space": true
+  }
+}

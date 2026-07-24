@@ -1,0 +1,26 @@
+{
+  "id": "librechat-api-smoke",
+  "name": "LibreChat API runtime smoke image",
+  "source": {
+    "repo": "danny-avila/LibreChat",
+    "pain_url": "https://github.com/danny-avila/LibreChat/actions/runs/30043722620",
+    "evidence_run": "https://github.com/danny-avila/LibreChat/actions/runs/30043722620/job/89329611854",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "refs": {
+    "main": "0bdf6b3d254ee129be5755eeb48bc826b0c738bf",
+    "seed": "388bd117286fd89e287e02b18900754b5b2dc864",
+    "rolling1": "25b041b1e3d589b492865c83646ec8f1e8f5aedd",
+    "rolling2": "0bdf6b3d254ee129be5755eeb48bc826b0c738bf"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile.multi",
+    "image": "librechat-api-smoke",
+    "platform": "linux/amd64",
+    "original_cache": "type=gha,mode=max,scope=docker-smoke-api"
+  },
+  "workflow": {
+    "free_disk_space": true
+  }
+}
