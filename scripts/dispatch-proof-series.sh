@@ -10,6 +10,7 @@ rolling_bootstrap_ref="main"
 build_output="none"
 lane_filter="all"
 cache_scope_suffix=""
+cli_version=""
 run_fresh="true"
 run_rolling="true"
 include_rolling_bootstrap="true"
@@ -40,6 +41,7 @@ Options:
   --build-output MODE             none, load, or local-registry (default: none)
   --lane-filter FILTER            all, buildkit, or gha-buildkit (default: all)
   --cache-scope-suffix SUFFIX     Isolate the stable rolling cache scope
+  --cli-version VERSION           Optional BoringCache CLI release tag
   --warm-replay                   Replay the last rolling ref once after the commit series
   --skip-fresh                    Do not dispatch the fresh lane
   --skip-rolling                  Do not dispatch rolling lanes
@@ -103,6 +105,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cache-scope-suffix)
       cache_scope_suffix="$2"
+      shift 2
+      ;;
+    --cli-version)
+      cli_version="$2"
       shift 2
       ;;
     --warm-replay)
@@ -243,6 +249,7 @@ dispatch_one() {
     -f "build_output=${build_output}"
     -f "lane_filter=${lane_filter}"
     -f "cache_scope_suffix=${cache_scope_suffix}"
+    -f "cli_version=${cli_version}"
   )
 
   printf 'Dispatching:'
