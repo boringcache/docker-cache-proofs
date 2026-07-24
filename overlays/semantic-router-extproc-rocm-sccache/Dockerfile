@@ -16,8 +16,9 @@ RUN set -eux; \
     sccache --version
 
 ENV CARGO_INCREMENTAL=0 \
-    RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/root/.cache/sccache
+    RUSTC_WRAPPER=/usr/local/bin/sccache \
+    SCCACHE_DIR=/root/.cache/sccache \
+    SCCACHE_SERVER_UDS=/tmp/sccache.sock
 
 # ============================================================================
 # Stage 1: Build candle-binding Rust library (x86_64, CPU-only)
@@ -42,6 +43,7 @@ COPY Makefile ./
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd candle-binding; \
     mkdir -p src; \
     echo "pub fn _dummy() {}" > src/lib.rs; \
@@ -54,6 +56,7 @@ COPY candle-binding/src/ ./candle-binding/src/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd candle-binding; \
     find target -name "libcandle_semantic_router.so" -delete 2>/dev/null || true; \
     sccache --zero-stats >/dev/null 2>&1 || true; \
@@ -85,6 +88,7 @@ COPY onnx-binding/Cargo.toml onnx-binding/Cargo.loc[k] ./onnx-binding/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd onnx-binding; \
     mkdir -p src; \
     echo "pub fn _dummy() {}" > src/lib.rs; \
@@ -97,6 +101,7 @@ COPY onnx-binding/src/ ./onnx-binding/src/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd onnx-binding; \
     find target -name "libonnx_semantic_router.so" -delete 2>/dev/null || true; \
     find target -name "libonnx_semantic_router.a" -delete 2>/dev/null || true; \
@@ -120,6 +125,7 @@ COPY ml-binding/Cargo.toml ml-binding/Cargo.loc[k] ./ml-binding/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd ml-binding; \
     mkdir -p src; \
     echo "pub fn _dummy() {}" > src/lib.rs; \
@@ -132,6 +138,7 @@ COPY ml-binding/src/ ./ml-binding/src/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd ml-binding; \
     find target -name "libml_semantic_router.so" -delete 2>/dev/null || true; \
     cargo build --release --target x86_64-unknown-linux-gnu; \
@@ -152,6 +159,7 @@ COPY nlp-binding/Cargo.toml nlp-binding/Cargo.loc[k] ./nlp-binding/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd nlp-binding; \
     mkdir -p src; \
     echo "pub fn _dummy() {}" > src/lib.rs; \
@@ -164,6 +172,7 @@ COPY nlp-binding/src/ ./nlp-binding/src/
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     cd nlp-binding; \
     find target -name "libnlp_binding.so" -delete 2>/dev/null || true; \
     cargo build --release --target x86_64-unknown-linux-gnu; \

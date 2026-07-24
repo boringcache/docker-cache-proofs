@@ -30,6 +30,7 @@ FROM base AS build-image
 ARG SCCACHE_VERSION=v0.14.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV CARGO_INCREMENTAL=0
+ENV SCCACHE_SERVER_UDS=/tmp/sccache.sock
 
 RUN apt update -y \
     && apt install -y git build-essential libssl-dev pkg-config protobuf-compiler ca-certificates tar \
@@ -57,7 +58,8 @@ WORKDIR /opt/sglang/sgl-model-gateway
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
-    export RUSTC_WRAPPER=sccache; \
+    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
+    test -x "$RUSTC_WRAPPER"; \
     sccache --zero-stats >/dev/null 2>&1 || true; \
     uv pip install maturin; \
     cargo clean; \
@@ -66,10 +68,11 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     ulimit -n 65536; \
     maturin build --release --features vendored-openssl --out dist; \
     cd ../..; \
-    rm -rf /root/.cache; \
     echo BEGIN_BORINGCACHE_SCCACHE_STATS; \
     sccache --show-stats; \
-    echo END_BORINGCACHE_SCCACHE_STATS
+    echo END_BORINGCACHE_SCCACHE_STATS; \
+    sccache --stop-server || true; \
+    rm -rf /root/.cache
 
 ######################### ROUTER IMAGE #########################
 FROM base AS router-image
