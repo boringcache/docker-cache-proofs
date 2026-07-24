@@ -27,8 +27,8 @@ COPY . /src
 ######################### BUILD IMAGE #########################
 FROM base AS build-image
 
-ARG SCCACHE_VERSION=v0.15.0
-ARG SCCACHE_SHA256_AMD64=782d2b5dd7ae0a55ebe368ab258114d0928d019ac2d949ab85d5d02f3926709e
+ARG SCCACHE_VERSION=v0.12.0
+ARG SCCACHE_SHA256_AMD64=b0e89ead6899224a4ba2b90e9073bf1ce036d95bab30f3dc33c1e1468bc4ad44
 ENV PATH="/opt/boringcache/bin:/root/.cargo/bin:${PATH}"
 ENV CARGO_INCREMENTAL=0
 ENV SCCACHE_SERVER_UDS=/tmp/sccache.sock
@@ -56,9 +56,13 @@ WORKDIR /opt/sglang/sgl-model-gateway
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
-    export RUSTC_WRAPPER=/opt/boringcache/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
+    export RUSTC_WRAPPER=/opt/boringcache/bin/sccache \
+        SCCACHE_SERVER_UDS=/tmp/sccache.sock \
+        SCCACHE_IGNORE_SERVER_IO_ERROR=1; \
     test -x "$RUSTC_WRAPPER"; \
-    sccache --zero-stats >/dev/null 2>&1 || true; \
+    sccache --start-server; \
+    sccache --zero-stats; \
+    sccache --show-stats; \
     uv pip install maturin; \
     cargo clean; \
     rm -rf bindings/python/dist/; \
