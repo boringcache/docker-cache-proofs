@@ -17,7 +17,7 @@ RUN set -eux; \
 
 ENV CARGO_INCREMENTAL=0 \
     RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/tmp/sccache
+    SCCACHE_DIR=/root/.cache/sccache
 
 # ============================================================================
 # Stage 1: Build candle-binding Rust library (x86_64, CPU-only)
@@ -47,7 +47,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     echo "pub fn _dummy() {}" > src/lib.rs; \
     OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu cargo build --release --no-default-features --target x86_64-unknown-linux-gnu; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache src
+    rm -rf /root/.cache/sccache src
 
 COPY candle-binding/src/ ./candle-binding/src/
 
@@ -62,7 +62,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     sccache --show-stats; \
     echo END_BORINGCACHE_SCCACHE_STATS; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache
+    rm -rf /root/.cache/sccache
 
 # ============================================================================
 # Stage 2: Build onnx-binding Rust library with ROCm support
@@ -90,7 +90,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     echo "pub fn _dummy() {}" > src/lib.rs; \
     OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu cargo build --release --features rocm-dynamic --target x86_64-unknown-linux-gnu; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache src
+    rm -rf /root/.cache/sccache src
 
 COPY onnx-binding/src/ ./onnx-binding/src/
 
@@ -104,7 +104,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     echo "=== Verifying ONNX-ROCm library ==="; \
     find target -name "libonnx_semantic_router.so" -type f -exec ls -la {} \;; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache
+    rm -rf /root/.cache/sccache
 
 # ============================================================================
 # Stage 3: Build ml-binding Rust library
@@ -125,7 +125,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     echo "pub fn _dummy() {}" > src/lib.rs; \
     cargo build --release --target x86_64-unknown-linux-gnu; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache src
+    rm -rf /root/.cache/sccache src
 
 COPY ml-binding/src/ ./ml-binding/src/
 
@@ -136,7 +136,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     find target -name "libml_semantic_router.so" -delete 2>/dev/null || true; \
     cargo build --release --target x86_64-unknown-linux-gnu; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache
+    rm -rf /root/.cache/sccache
 
 # ============================================================================
 # Stage 4: Build nlp-binding Rust library
@@ -157,7 +157,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     echo "pub fn _dummy() {}" > src/lib.rs; \
     cargo build --release --target x86_64-unknown-linux-gnu; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache src
+    rm -rf /root/.cache/sccache src
 
 COPY nlp-binding/src/ ./nlp-binding/src/
 
@@ -168,7 +168,7 @@ RUN --mount=type=secret,id=boringcache-tool-cache-env \
     find target -name "libnlp_binding.so" -delete 2>/dev/null || true; \
     cargo build --release --target x86_64-unknown-linux-gnu; \
     sccache --stop-server || true; \
-    rm -rf /tmp/sccache
+    rm -rf /root/.cache/sccache
 
 # ============================================================================
 # Stage 5: Build CK Flash Attention custom op library (ROCm / gfx942)
