@@ -7,17 +7,20 @@
     "runner": "GitHub-hosted ubuntu-latest"
   },
   "refs": {
-    "main": "8f47cfc5ee9efbfb978e03ba5c9021ce413f777e",
-    "seed": "10d25081c4fc2429232ef6fee09498a807dd2cea",
-    "rolling1": "7d6efbdf47d83aa0796eebd8b1840db70d597c9b",
-    "rolling2": "8f47cfc5ee9efbfb978e03ba5c9021ce413f777e"
+    "main": "d345e4920fa43e81daebc0fd8ca12d7486630669",
+    "seed": "2623e5f92db73200e1143fdead8447797b4c356c",
+    "rolling1": "f95191edde93d88de672297caaacc4cec33e1c8a",
+    "rolling2": "7aa4b484b2a47681f0a068d889a4874f41718bfa",
+    "rolling3": "218a2ae95ab3fb7ca333c5db2df2510535d33585",
+    "rolling4": "d345e4920fa43e81daebc0fd8ca12d7486630669"
   },
   "docker": {
     "context": ".",
     "dockerfile": "apps/web/Dockerfile",
     "image": "formbricks-web",
     "platform": "linux/amd64",
-    "original_cache": "type=gha,mode=max"
+    "original_cache": "type=gha,mode=max",
+    "tool_cache": "turbo:{CACHE_SCOPE}-turbo"
   },
   "workflow": {
     "free_disk_space": true
