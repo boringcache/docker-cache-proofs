@@ -240,11 +240,13 @@ RUN echo "=== Verifying libraries ===" && \
     file /app/nlp-binding/target/release/libnlp_binding.so
 
 RUN mkdir -p bin && cd src/semantic-router && \
+    CC=cc CXX=c++ \
     CGO_CFLAGS="-I/app/candle-binding" \
     CGO_LDFLAGS="-L/app/candle-binding/target/release -L/app/ml-binding/target/release -L/app/nlp-binding/target/release -lcandle_semantic_router -lml_semantic_router -lnlp_binding" \
     go build -ldflags="-w -s" -o ../../bin/router-candle ./cmd
 
 RUN cd src/semantic-router && \
+    CC=cc CXX=c++ \
     CGO_CFLAGS="-I/app/onnx-binding" \
     CGO_LDFLAGS="-L/app/onnx-binding/target/release -L/app/ml-binding/target/release -L/app/nlp-binding/target/release -lonnx_semantic_router -lml_semantic_router -lnlp_binding" \
     go build -modfile=go.onnx.mod -tags=onnx -ldflags="-w -s" -o ../../bin/router-onnx ./cmd
