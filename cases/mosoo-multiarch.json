@@ -22,6 +22,9 @@
       "VERSION=sha-{PROJECT_REF}",
       "VCS_REF={PROJECT_REF}"
     ],
+    "prepare_commands": [
+      "git -c protocol.version=2 submodule update --init --depth=1 apps/driver"
+    ],
     "original_cache": "type=gha,mode=max,scope=mosoo-container"
   },
   "workflow": {
