@@ -27,6 +27,8 @@ on:
           - open-webui-ollama
           - auto-mobile-docker
           - supabase-studio
+          - supabase-storage-api
+          - supabase-storage-api-arm64
           - prefect-conda
           - teable-community
           - formbricks-web
@@ -45,6 +47,7 @@ on:
           - misskey-develop-amd64
           - omninode-runtime
           - vellum-assistant
+          - windmill-extra
       ref_key:
         description: Pinned case ref name or exact 40-character source SHA
         required: true
