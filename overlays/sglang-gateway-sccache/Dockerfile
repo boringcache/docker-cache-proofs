@@ -27,8 +27,9 @@ COPY . /src
 ######################### BUILD IMAGE #########################
 FROM base AS build-image
 
-ARG SCCACHE_VERSION=v0.14.0
-ENV PATH="/root/.cargo/bin:${PATH}"
+ARG SCCACHE_VERSION=v0.15.0
+ARG SCCACHE_SHA256_AMD64=782d2b5dd7ae0a55ebe368ab258114d0928d019ac2d949ab85d5d02f3926709e
+ENV PATH="/opt/boringcache/bin:/root/.cargo/bin:${PATH}"
 ENV CARGO_INCREMENTAL=0
 ENV SCCACHE_SERVER_UDS=/tmp/sccache.sock
 
@@ -41,15 +42,12 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rustc --version && cargo --version && protoc --version
 
 RUN set -eux; \
-    arch="$(uname -m)"; \
-    case "$arch" in \
-      x86_64) sccache_arch="x86_64" ;; \
-      aarch64) sccache_arch="aarch64" ;; \
-      *) echo "unsupported sccache architecture: ${arch}" >&2; exit 1 ;; \
-    esac; \
-    curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/sccache-${SCCACHE_VERSION}-${sccache_arch}-unknown-linux-musl.tar.gz" | tar xz -C /tmp; \
-    mv "/tmp/sccache-${SCCACHE_VERSION}-${sccache_arch}-unknown-linux-musl/sccache" /usr/local/bin/sccache; \
-    chmod +x /usr/local/bin/sccache; \
+    archive="sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz"; \
+    curl -fsSL "https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${archive}" -o "/tmp/${archive}"; \
+    printf '%s  %s\n' "$SCCACHE_SHA256_AMD64" "/tmp/${archive}" | sha256sum -c -; \
+    tar -xzf "/tmp/${archive}" -C /tmp; \
+    install -D -m 0755 "/tmp/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache" /opt/boringcache/bin/sccache; \
+    rm -rf "/tmp/${archive}" "/tmp/sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl"; \
     sccache --version
 
 COPY --from=local_src /src /opt/sglang
@@ -58,7 +56,7 @@ WORKDIR /opt/sglang/sgl-model-gateway
 RUN --mount=type=secret,id=boringcache-tool-cache-env \
     set -eux; \
     . /run/secrets/boringcache-tool-cache-env; \
-    export RUSTC_WRAPPER=/usr/local/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
+    export RUSTC_WRAPPER=/opt/boringcache/bin/sccache SCCACHE_SERVER_UDS=/tmp/sccache.sock; \
     test -x "$RUSTC_WRAPPER"; \
     sccache --zero-stats >/dev/null 2>&1 || true; \
     uv pip install maturin; \
