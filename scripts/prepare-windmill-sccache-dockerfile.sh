@@ -27,11 +27,13 @@ trap 'rm -f "$rendered_dockerfile"' EXIT
 awk '
   BEGIN {
     install_steps = 0
+    removed_install_steps = 0
     compile_steps = 0
   }
-  $0 == "RUN cargo install sccache --version ^0.8" {
+  $0 == "RUN rustup component add rustfmt" {
     print "# Benchmark-only prerequisite for boringcache docker --tool-cache sccache."
-    print "# BoringCache injects the compiler-cache configuration at build time."
+    print "# Install it before the first Rust command because BoringCache injects"
+    print "# RUSTC_WRAPPER into every RUN, including cargo install cargo-chef."
     print "ARG BORINGCACHE_SCCACHE_VERSION=0.16.0"
     print "ARG BORINGCACHE_SCCACHE_SHA256_AMD64=aec995a83ad3dff3d14b6314e08858b7b73d35ca85a5bcf3d3a9ec07dee35588"
     print "ARG BORINGCACHE_SCCACHE_SHA256_ARM64=f73a5c39f96bb6ebb89cc7915cf182260d4cbf30765322c5e793d0fe8bd80784"
@@ -50,7 +52,12 @@ awk '
     print "rm -rf \"/tmp/${sccache_archive}\" \"/tmp/sccache-v${BORINGCACHE_SCCACHE_VERSION}-${sccache_target}\""
     print "sccache --version"
     print "SCCACHE_INSTALL"
+    print $0
     install_steps += 1
+    next
+  }
+  $0 == "RUN cargo install sccache --version ^0.8" {
+    removed_install_steps += 1
     next
   }
   $0 == "    CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release --features \"$features\"" {
@@ -60,8 +67,8 @@ awk '
   }
   { print }
   END {
-    if (install_steps != 1 || compile_steps != 1) {
-      printf "Unsupported Windmill Dockerfile: rendered %d installs and %d compile probes.\n", install_steps, compile_steps > "/dev/stderr"
+    if (install_steps != 1 || removed_install_steps != 1 || compile_steps != 1) {
+      printf "Unsupported Windmill Dockerfile: rendered %d installs, removed %d legacy installs, and rendered %d compile probes.\n", install_steps, removed_install_steps, compile_steps > "/dev/stderr"
       exit 1
     }
   }
