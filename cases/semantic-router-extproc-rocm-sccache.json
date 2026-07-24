@@ -1,6 +1,6 @@
 {
-  "id": "semantic-router-extproc-rocm",
-  "name": "vLLM Semantic Router ROCm extproc image",
+  "id": "semantic-router-extproc-rocm-sccache",
+  "name": "vLLM Semantic Router ROCm extproc image with container-side sccache",
   "source": {
     "repo": "vllm-project/semantic-router",
     "fetch_ref": "refs/pull/2656/merge",
@@ -17,8 +17,9 @@
   },
   "docker": {
     "context": ".",
-    "dockerfile": "tools/docker/Dockerfile.extproc-rocm",
-    "image": "semantic-router-extproc-rocm",
+    "dockerfile": "tools/docker/Dockerfile.extproc-rocm.boringcache-sccache",
+    "overlay_dockerfile": "overlays/semantic-router-extproc-rocm-sccache/Dockerfile",
+    "image": "semantic-router-extproc-rocm-sccache",
     "platform": "linux/amd64",
     "build_args": [
       "BUILDKIT_INLINE_CACHE=1",
@@ -27,7 +28,8 @@
       "RUSTC_WRAPPER=",
       "CARGO_NET_GIT_FETCH_WITH_CLI=true"
     ],
-    "original_cache": "type=gha,mode=max,scope=extproc-rocm-amd64,ignore-error=true"
+    "original_cache": "type=gha,mode=max,scope=extproc-rocm-amd64,ignore-error=true",
+    "tool_cache": "sccache:{CACHE_SCOPE}-sccache"
   },
   "workflow": {
     "free_disk_space": true

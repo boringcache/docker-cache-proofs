@@ -1,0 +1,26 @@
+{
+  "id": "dify-api-amd64",
+  "name": "Dify API image on AMD64",
+  "source": {
+    "repo": "langgenius/dify",
+    "pain_url": "https://github.com/langgenius/dify/actions/runs/30072434246",
+    "evidence_run": "https://github.com/langgenius/dify/actions/runs/30072434246",
+    "runner": "Depot ubuntu-24.04 four-core"
+  },
+  "refs": {
+    "main": "aef1c6772116bd7e92cb1787bd2a3571ad63ee37",
+    "seed": "db29caff2bb226434047c7ec54ae63efd577ae76",
+    "rolling1": "bbb133cd581ecb3cfb122472681b17784ff1aa18",
+    "rolling2": "aef1c6772116bd7e92cb1787bd2a3571ad63ee37"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "api/Dockerfile",
+    "image": "dify-api-amd64",
+    "platform": "linux/amd64",
+    "original_cache": "Depot persistent BuildKit cache on depot-ubuntu-24.04-4"
+  },
+  "workflow": {
+    "free_disk_space": true
+  }
+}

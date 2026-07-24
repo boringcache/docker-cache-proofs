@@ -1,0 +1,26 @@
+{
+  "id": "dify-web-amd64",
+  "name": "Dify Web image on AMD64",
+  "source": {
+    "repo": "langgenius/dify",
+    "pain_url": "https://github.com/langgenius/dify/actions/runs/30068383863",
+    "evidence_run": "https://github.com/langgenius/dify/actions/runs/30068383863",
+    "runner": "Depot ubuntu-24.04 four-core"
+  },
+  "refs": {
+    "main": "c4bfea6096535c3114451543fbb351ef7594d7eb",
+    "seed": "14c50a9f09dd736306b3f42e45785f752a64a01a",
+    "rolling1": "34e2205efaf61bac53649ea38705d5de36497748",
+    "rolling2": "c4bfea6096535c3114451543fbb351ef7594d7eb"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "web/Dockerfile",
+    "image": "dify-web-amd64",
+    "platform": "linux/amd64",
+    "original_cache": "Depot persistent BuildKit cache on depot-ubuntu-24.04-4"
+  },
+  "workflow": {
+    "free_disk_space": true
+  }
+}

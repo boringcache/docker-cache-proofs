@@ -33,10 +33,13 @@ on:
           - teable-community
           - formbricks-web
           - semantic-router-extproc-rocm
+          - semantic-router-extproc-rocm-sccache
           - sglang-gateway
           - sglang-gateway-sccache
           - baserow-backend-ci
           - mosoo-multiarch
+          - dify-api-amd64
+          - dify-web-amd64
           - librechat-api-smoke
           - umami-release
           - hoppscotch-backend

@@ -18,6 +18,7 @@ fi
 
 project_repo="$(jq -er '.source.repo' "$case_file")"
 project_ref="$("${repo_root}/scripts/resolve-case-ref.sh" "$case_file" "$ref_key")"
+fetch_ref="$(jq -r --arg project_ref "$project_ref" '.source.fetch_ref // $project_ref' "$case_file")"
 fetch_depth="$(jq -r '.source.fetch_depth // 1' "$case_file")"
 project_tag="$(jq -r --arg key "$ref_key" '.ref_metadata[$key].tag // ""' "$case_file")"
 project_l10n_sha="$(jq -r --arg key "$ref_key" '.ref_metadata[$key].l10n_sha // ""' "$case_file")"
@@ -31,17 +32,17 @@ git init "$source_dir"
 git -C "$source_dir" remote add origin "$clone_url"
 case "$fetch_depth" in
   0|full)
-    git -C "$source_dir" -c protocol.version=2 fetch --tags origin "$project_ref"
+    git -C "$source_dir" -c protocol.version=2 fetch --tags origin "$fetch_ref"
     ;;
   ''|*[!0-9]*)
     echo "Invalid source.fetch_depth for ${case_id}: ${fetch_depth}" >&2
     exit 1
     ;;
   *)
-    git -C "$source_dir" -c protocol.version=2 fetch --depth="$fetch_depth" origin "$project_ref"
+    git -C "$source_dir" -c protocol.version=2 fetch --depth="$fetch_depth" origin "$fetch_ref"
     ;;
 esac
-git -C "$source_dir" checkout --detach FETCH_HEAD
+git -C "$source_dir" checkout --detach "$project_ref"
 
 actual_ref="$(git -C "$source_dir" rev-parse HEAD)"
 if [[ "$actual_ref" != "$project_ref" ]]; then
