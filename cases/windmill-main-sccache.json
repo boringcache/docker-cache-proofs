@@ -1,11 +1,11 @@
 {
   "id": "windmill-main-sccache",
-  "name": "Windmill CE builder with container-side sccache",
+  "name": "Windmill public OSS builder with container-side sccache",
   "source": {
     "repo": "windmill-labs/windmill",
     "pain_url": "https://github.com/windmill-labs/windmill/actions/runs/30081039120",
     "evidence_run": "https://github.com/windmill-labs/windmill/actions/runs/30081039120/job/89442464241",
-    "runner": "Ubicloud orchestration with Depot native builders"
+    "runner": "Production CE uses Ubicloud orchestration with Depot native builders; this reproducible public proxy uses the OSS feature set"
   },
   "refs": {
     "main": "c24d6f9d11db8df295b019f10d08b85b1f81cea2",
@@ -21,12 +21,12 @@
     "target": "builder",
     "platform": "linux/amd64",
     "build_args": [
-      "features=ce"
+      "features=oss"
     ],
     "prepare_commands": [
       "../../../scripts/prepare-windmill-sccache-dockerfile.sh Dockerfile"
     ],
-    "original_cache": "Depot persistent BuildKit cache on a native linux/amd64 builder",
+    "original_cache": "Production CE uses Depot persistent BuildKit cache on a native linux/amd64 builder; private CE sources are unavailable to the public proxy",
     "tool_cache": "sccache:{CACHE_SCOPE}-sccache"
   },
   "workflow": {
