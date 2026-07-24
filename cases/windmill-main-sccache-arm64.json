@@ -1,0 +1,37 @@
+{
+  "id": "windmill-main-sccache-arm64",
+  "name": "Windmill CE builder with container-side sccache on ARM64",
+  "source": {
+    "repo": "windmill-labs/windmill",
+    "pain_url": "https://github.com/windmill-labs/windmill/actions/runs/30081039120",
+    "evidence_run": "https://github.com/windmill-labs/windmill/actions/runs/30081039120/job/89442464241",
+    "runner": "Ubicloud orchestration with Depot native builders"
+  },
+  "refs": {
+    "main": "c24d6f9d11db8df295b019f10d08b85b1f81cea2",
+    "seed": "abd659925df94db99546ba81e7c3f65bd9e4943f",
+    "rolling1": "6de4ec0f665ad856002495c4d86269105ec28ad7",
+    "rolling2": "d7a0078b58f74f1ffecc03b348e8935a70f02e55",
+    "rolling3": "c24d6f9d11db8df295b019f10d08b85b1f81cea2"
+  },
+  "docker": {
+    "context": ".",
+    "dockerfile": "Dockerfile",
+    "image": "windmill-main-sccache-arm64",
+    "target": "builder",
+    "platform": "linux/arm64",
+    "build_args": [
+      "features=ce"
+    ],
+    "prepare_commands": [
+      "../../../scripts/prepare-windmill-sccache-dockerfile.sh Dockerfile"
+    ],
+    "original_cache": "Depot persistent BuildKit cache on a native linux/arm64 builder",
+    "tool_cache": "sccache:{CACHE_SCOPE}-sccache"
+  },
+  "workflow": {
+    "runner_label": "ubuntu-24.04-arm",
+    "cli_platform": "linux-arm64",
+    "free_disk_space": true
+  }
+}
